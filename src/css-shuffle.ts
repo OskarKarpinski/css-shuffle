@@ -6,13 +6,19 @@ import prettyBytes from "pretty-bytes";
 import postcss, { Root } from "postcss";
 import selectorParser from "postcss-selector-parser";
 import valueParser from "postcss-value-parser";
+import * as parser from '@babel/parser';
+import _traverse from '@babel/traverse';
+const traverse = (_traverse).default;
+import _generate from '@babel/generator';
+const generate = (_generate).default;
+
+import * as t from '@babel/types';
 
 import { Renamer } from "./renamer.js";
+import { isDomElement } from "./javascript-obfuscator.js";
 
 export class CSSShuffle {
     private renamer = new Renamer();
-
-    // private readonly stats = new Table();
 
     private readonly stats = new Map<string, {orginalSize: number, newSize: number}>()
 
@@ -36,6 +42,138 @@ export class CSSShuffle {
         const mapping = this.getMappingJSON()
 
         fs.writeFileSync(path, mapping)
+    }
+
+    async obfuscateJS(js: string): Promise<string> {
+        const ast = parser.parse(js, {
+            sourceType: 'script',
+            plugins: ['classProperties'],
+            errorRecovery: true,
+        });
+
+        const getStringValue = (node: t.Node): string | null => {
+            if (t.isStringLiteral(node)) return node.value;
+            if (t.isTemplateLiteral(node) && node.quasis.length === 1 && node.expressions.length === 0) {
+                return node.quasis[0].value.cooked || node.quasis[0].value.raw;
+            }
+            return null;
+        };
+
+        const createStringNode = (originalNode: t.Node, value: string): t.StringLiteral | t.TemplateLiteral => {
+            if (t.isTemplateLiteral(originalNode)) {
+                return t.templateLiteral([t.templateElement({ raw: value, cooked: value }, true)], []);
+            }
+            return t.stringLiteral(value);
+        };
+
+        traverse(ast, {
+            CallExpression: (path) => {
+                const { callee, arguments: args } = path.node;
+
+                if (!t.isMemberExpression(callee)) return;
+                const object = callee.object;
+                const method = callee.property;
+
+                if (!t.isIdentifier(method)) return;
+
+                // ── classList.add/remove/toggle/contains/replace ──────────────────
+                if (
+                    t.isMemberExpression(object) &&
+                    t.isIdentifier(object.property, { name: 'classList' }) &&
+                    ['add', 'remove', 'toggle', 'contains', 'replace'].includes(method.name) &&
+                    isDomElement(object.object, path.scope)   // ← guard
+                ) {
+                    args.forEach((arg, i) => {
+                        const val = getStringValue(arg);
+                        if (val !== null) {
+                            const obf = this.getObfuscateName(val);
+                            if (obf) args[i] = createStringNode(arg, obf);
+                        }
+                    });
+                }
+
+                // ── querySelector / querySelectorAll ──────────────────────────────
+                if (
+                    ['querySelector', 'querySelectorAll'].includes(method.name) &&
+                    args.length === 1 &&
+                    isDomElement(object, path.scope)          // ← guard
+                ) {
+                    const val = getStringValue(args[0]);
+                    if (val !== null) {
+                        args[0] = createStringNode(args[0], this.obfuscateSelector(val));
+                    }
+                }
+
+                // ── getElementById ────────────────────────────────────────────────
+                if (
+                    method.name === 'getElementById' &&
+                    args.length === 1 &&
+                    isDomElement(object, path.scope)          // ← guard
+                ) {
+                    const val = getStringValue(args[0]);
+                    if (val !== null) {
+                        const obf = this.getObfuscateName(val);
+                        if (obf) args[0] = createStringNode(args[0], obf);
+                    }
+                }
+
+                // ── getElementsByClassName ────────────────────────────────────────
+                if (
+                    method.name === 'getElementsByClassName' &&
+                    args.length === 1 &&
+                    isDomElement(object, path.scope)          // ← guard
+                ) {
+                    const val = getStringValue(args[0]);
+                    if (val !== null) {
+                        const obf = this.getObfuscateName(val);
+                        if (obf) args[0] = createStringNode(args[0], obf);
+                    }
+                }
+
+                // ── setAttribute('class'/'id', ...) ───────────────────────────────
+                if (
+                    method.name === 'setAttribute' &&
+                    args.length === 2 &&
+                    isDomElement(object, path.scope)          // ← guard
+                ) {
+                    const attrName = getStringValue(args[0]);
+                    const attrVal = getStringValue(args[1]);
+                    if (attrName !== null && attrVal !== null) {
+                        if (attrName === 'class') {
+                            const newVal = attrVal
+                                .split(/\s+/)
+                                .map(cls => this.getObfuscateName(cls) || cls)
+                                .join(' ');
+                            args[1] = createStringNode(args[1], newVal);
+                        } else if (attrName === 'id') {
+                            const obf = this.getObfuscateName(attrVal);
+                            if (obf) args[1] = createStringNode(args[1], obf);
+                        }
+                    }
+                }
+            },
+
+            // ── element.className = 'foo bar' ─────────────────────────────────────
+            AssignmentExpression: (path) => {
+                const { left, right } = path.node;
+                if (
+                    t.isMemberExpression(left) &&
+                    t.isIdentifier(left.property, { name: 'className' }) &&
+                    isDomElement(left.object, path.scope)     // ← guard
+                ) {
+                    const val = getStringValue(right);
+                    if (val !== null) {
+                        const newVal = val
+                            .split(/\s+/)
+                            .map(cls => this.getObfuscateName(cls) || cls)
+                            .join(' ');
+                        path.node.right = createStringNode(right, newVal);
+                    }
+                }
+            },
+        });
+
+        return generate(ast, { retainLines: true }, js).code;
     }
 
     async obfuscateCSS(css: string): Promise<string> {
@@ -65,16 +203,34 @@ export class CSSShuffle {
             ]).process(css, { from: undefined }).then(result => result.css);
     }
 
-    private obfuscateCSSInHtml(html: string): string {
-        const styleTagRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi;
-        return html.replace(styleTagRegex, (_, p1) => {
-            let styleContent = p1;
-            styleContent = this.obfuscateCSS(styleContent);
-            return `<style>${styleContent}</style>`;
-        });
+    private async obfuscateCSSInHtml(html: string): Promise<string> {
+        const $ = cheerio.load(html);
+        const styles = $('style').toArray();
+        for (const style of styles) {
+            const $style = $(style);
+            const content = $style.html();
+            if (content) {
+                const obfuscatedContent = await this.obfuscateCSS(content);
+                $style.html(obfuscatedContent);
+            }
+        }
+        return $.html();
     }
 
-    private replaceNamesInHtml(html: string): string {
+    // Reuse your existing CSS selector obfuscation logic
+    private obfuscateSelector(selector: string): string {
+        return selector
+            .replace(/\.([a-zA-Z0-9_-]+)/g, (_, cls) => {
+                const obf = this.getObfuscateName(cls);
+                return obf ? `.${obf}` : `.${cls}`;
+            })
+            .replace(/#([a-zA-Z0-9_-]+)/g, (_, id) => {
+                const obf = this.getObfuscateName(id);
+                return obf ? `#${obf}` : `#${id}`;
+            });
+    }
+
+    private async replaceNamesInHtml(html: string): Promise<string> {
         const $ = cheerio.load(html);
 
         $('[class]').each((_, e) => {
@@ -98,6 +254,16 @@ export class CSSShuffle {
             const target = href.slice(1);
             $(e).attr('href', '#' + this.getObfuscateName(target));
         });
+
+        const scripts = $('script').toArray();
+        for (const script of scripts) {
+            const $script = $(script);
+            const content = $script.html();
+            if (content) {
+                const obfuscatedContent = await this.obfuscateJS(content);
+                $script.html(obfuscatedContent);
+            }
+        }
 
         return $.html();
     }
@@ -139,7 +305,7 @@ export class CSSShuffle {
         // Obfuscate CSS in <style> tag in HTML files
         for (const htmlFile of htmlFiles) {
             const htmlContent = fs.readFileSync(htmlFile, 'utf-8');
-            let obfuscatedHtmlContent = this.obfuscateCSSInHtml(htmlContent);
+            let obfuscatedHtmlContent = await this.obfuscateCSSInHtml(htmlContent);
             fs.writeFileSync(htmlFile, obfuscatedHtmlContent, 'utf-8');
 
             const oldSize = htmlContent.length
@@ -156,7 +322,7 @@ export class CSSShuffle {
         // Export export obfuscated names to HTML
         for (const htmlFile of htmlFiles) {
             const htmlContent = fs.readFileSync(htmlFile, 'utf-8');
-            let newHtmlContent = this.replaceNamesInHtml(htmlContent);
+            let newHtmlContent = await this.replaceNamesInHtml(htmlContent);
             fs.writeFileSync(htmlFile, newHtmlContent, 'utf-8');
 
             let orginalSize = htmlContent.length

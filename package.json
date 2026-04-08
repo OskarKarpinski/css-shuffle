@@ -18,6 +18,10 @@
   },
   "homepage": "https://github.com/M3DZIK/css-shuffle#readme",
   "dependencies": {
+    "@babel/generator": "^7.29.1",
+    "@babel/parser": "^7.29.2",
+    "@babel/traverse": "^7.29.0",
+    "@babel/types": "^7.29.0",
     "cheerio": "^1.1.2",
     "console-table-printer": "^2.14.6",
     "globby": "^14.1.0",
@@ -27,6 +31,8 @@
     "pretty-bytes": "^7.0.1"
   },
   "devDependencies": {
+    "@types/babel__generator": "^7.27.0",
+    "@types/babel__traverse": "^7.28.0",
     "@types/css-tree": "^2.3.10",
     "@types/node": "^24.3.0",
     "astro": "^5.13.3",
