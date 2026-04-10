@@ -9,14 +9,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/M3DZIK/css-shuffle.git"
+    "url": "git+https://github.com/OskarKarpinski/css-shuffle.git"
   },
   "author": "Oskar Karpiński",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/M3DZIK/css-shuffle/issues"
+    "url": "https://github.com/OskarKarpinski/css-shuffle/issues"
   },
-  "homepage": "https://github.com/M3DZIK/css-shuffle#readme",
+  "homepage": "https://github.com/OskarKarpinski/css-shuffle#readme",
   "dependencies": {
     "@babel/generator": "^7.29.1",
     "@babel/parser": "^7.29.2",
