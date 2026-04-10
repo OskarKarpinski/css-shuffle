@@ -3,14 +3,12 @@ import { globby } from "globby";
 import * as cheerio from "cheerio";
 import { Table } from "console-table-printer";
 import prettyBytes from "pretty-bytes";
-import postcss, { Root } from "postcss";
+import postcss, { type Root } from "postcss";
 import selectorParser from "postcss-selector-parser";
 import valueParser from "postcss-value-parser";
 import * as parser from '@babel/parser';
-import _traverse from '@babel/traverse';
-const traverse = (_traverse).default;
-import _generate from '@babel/generator';
-const generate = (_generate).default;
+import traverse from '@babel/traverse';
+import generate from '@babel/generator';
 
 import * as t from '@babel/types';
 
@@ -66,7 +64,7 @@ export class CSSShuffle {
             return t.stringLiteral(value);
         };
 
-        traverse(ast, {
+        traverse.default(ast, {
             CallExpression: (path) => {
                 const { callee, arguments: args } = path.node;
 
@@ -173,7 +171,7 @@ export class CSSShuffle {
             },
         });
 
-        return generate(ast, { retainLines: true }, js).code;
+        return generate.default(ast, { retainLines: true }, js).code;
     }
 
     async obfuscateCSS(css: string): Promise<string> {
@@ -183,24 +181,32 @@ export class CSSShuffle {
                     rule.selector = selectorParser(selectors => {
                         selectors.walkClasses(node => { node.value = this.obfuscateName(node.value) });
                         selectors.walkIds(node => { node.value = this.obfuscateName(node.value) });
-                        }).processSync(rule.selector);
-                    });
+                    }).processSync(rule.selector);
+                });
 
-                    root.walkDecls(decl => {
-                        if (decl.prop.startsWith("--")) {
-                            decl.prop = `--${this.obfuscateName(decl.prop.substring(2))}`
-                        }
+                // Obfuscated properties like this:
+                //  @property --tw-font-weight{syntax:"*";inherits:false}
+                root.walkAtRules('property', atRule => {
+                    if (atRule.params.startsWith('--')) {
+                        atRule.params = `--${this.obfuscateName(atRule.params.substring(2))}`;
+                    }
+                });
 
-                        const parsedValue = valueParser(decl.value);
-                        parsedValue.walk(node => {
+                root.walkDecls(decl => {
+                    if (decl.prop.startsWith("--")) {
+                        decl.prop = `--${this.obfuscateName(decl.prop.substring(2))}`
+                    }
+
+                    const parsedValue = valueParser(decl.value);
+                    parsedValue.walk(node => {
                         if (node.type === 'function' && node.value === 'var' && node.nodes[0]) {
                             node.nodes[0].value = `--${this.obfuscateName(node.nodes[0].value.substring(2))}`;
                         }
-                        });
-                        decl.value = parsedValue.toString();
-                    })
-                }
-            ]).process(css, { from: undefined }).then(result => result.css);
+                    });
+                    decl.value = parsedValue.toString();
+                })
+            }
+        ]).process(css, { from: undefined }).then(result => result.css);
     }
 
     private async obfuscateCSSInHtml(html: string): Promise<string> {
