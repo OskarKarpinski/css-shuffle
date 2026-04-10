@@ -14,6 +14,7 @@ import * as t from '@babel/types';
 
 import { Renamer } from "./renamer.js";
 import { isDomElement } from "./javascript-obfuscator.js";
+import { debugLog } from "./logger.js";
 
 export class CSSShuffle {
     private renamer = new Renamer();
@@ -21,7 +22,9 @@ export class CSSShuffle {
     private readonly stats = new Map<string, {orginalSize: number, newSize: number}>()
 
     private obfuscateName(originalName: string): string {
-        return this.renamer.rename(originalName);
+        const newName = this.renamer.rename(originalName);
+        debugLog("obfuscate", `${originalName} -> ${newName}`);
+        return newName;
     }
 
     private getObfuscateName(key: string): string {
@@ -83,8 +86,10 @@ export class CSSShuffle {
                 ) {
                     args.forEach((arg, i) => {
                         const val = getStringValue(arg);
+                        debugLog("javascript classList.add/remove/toggle/contains/replace", `Found: ${val}`)
                         if (val !== null) {
                             const obf = this.getObfuscateName(val);
+                            debugLog("javascript classList.add/remove/toggle/contains/replace", `${val} -> ${obf}`)
                             if (obf) args[i] = createStringNode(arg, obf);
                         }
                     });
@@ -97,7 +102,10 @@ export class CSSShuffle {
                     isDomElement(object, path.scope)          // ← guard
                 ) {
                     const val = getStringValue(args[0]);
+                    debugLog("javascript querySelector / querySelectorAll", `Found: ${val}`)
                     if (val !== null) {
+                        const obf = this.obfuscateSelector(val)
+                        debugLog("javascript querySelector / querySelectorAll", `${val} -> ${obf}`)
                         args[0] = createStringNode(args[0], this.obfuscateSelector(val));
                     }
                 }
@@ -109,8 +117,10 @@ export class CSSShuffle {
                     isDomElement(object, path.scope)          // ← guard
                 ) {
                     const val = getStringValue(args[0]);
+                    debugLog("javascript getElementById", `Found: ${val}`)
                     if (val !== null) {
                         const obf = this.getObfuscateName(val);
+                        debugLog("javascript getElementById", `${val} -> ${obf}`)
                         if (obf) args[0] = createStringNode(args[0], obf);
                     }
                 }
@@ -122,8 +132,10 @@ export class CSSShuffle {
                     isDomElement(object, path.scope)          // ← guard
                 ) {
                     const val = getStringValue(args[0]);
+                    debugLog("javascript getElementsByClassName", `Found: ${val}`)
                     if (val !== null) {
                         const obf = this.getObfuscateName(val);
+                        debugLog("javascript getElementsByClassName", `${val} -> ${obf}`)
                         if (obf) args[0] = createStringNode(args[0], obf);
                     }
                 }
@@ -136,15 +148,18 @@ export class CSSShuffle {
                 ) {
                     const attrName = getStringValue(args[0]);
                     const attrVal = getStringValue(args[1]);
+                    debugLog("javascript setAttribute", `Found: ${attrName} - ${attrVal}`)
                     if (attrName !== null && attrVal !== null) {
                         if (attrName === 'class') {
                             const newVal = attrVal
                                 .split(/\s+/)
                                 .map(cls => this.getObfuscateName(cls) || cls)
                                 .join(' ');
+                            debugLog("javascript setAttribute", `${args[1]} - ${newVal}`)
                             args[1] = createStringNode(args[1], newVal);
                         } else if (attrName === 'id') {
                             const obf = this.getObfuscateName(attrVal);
+                            debugLog("javascript setAttribute", `${args[1]} - ${obf}`)
                             if (obf) args[1] = createStringNode(args[1], obf);
                         }
                     }
@@ -160,11 +175,13 @@ export class CSSShuffle {
                     isDomElement(left.object, path.scope)     // ← guard
                 ) {
                     const val = getStringValue(right);
+                    debugLog("javascript element.className", `Found: ${val}`)
                     if (val !== null) {
                         const newVal = val
                             .split(/\s+/)
                             .map(cls => this.getObfuscateName(cls) || cls)
                             .join(' ');
+                        debugLog("javascript element.className", `${val} -> ${newVal}`)
                         path.node.right = createStringNode(right, newVal);
                     }
                 }
@@ -179,28 +196,40 @@ export class CSSShuffle {
             (root: Root) => {
                 root.walkRules(rule => {
                     rule.selector = selectorParser(selectors => {
-                        selectors.walkClasses(node => { node.value = this.obfuscateName(node.value) });
-                        selectors.walkIds(node => { node.value = this.obfuscateName(node.value) });
+                        selectors.walkClasses(node => {
+                            debugLog("walkClasses", `Found: ${node.value}`)
+                            node.value = this.obfuscateName(node.value)
+                        });
+                        selectors.walkIds(node => {
+                            debugLog("walkIds", `Found: ${node.value}`)
+                            node.value = this.obfuscateName(node.value)
+                        });
                     }).processSync(rule.selector);
                 });
 
                 // Obfuscated properties like this:
                 //  @property --tw-font-weight{syntax:"*";inherits:false}
                 root.walkAtRules('property', atRule => {
+                    debugLog("walkAtRules('property')", `Found: ${atRule.params}`)
+
                     if (atRule.params.startsWith('--')) {
-                        atRule.params = `--${this.obfuscateName(atRule.params.substring(2))}`;
+                        const newName = `--${this.obfuscateName(atRule.params.substring(2))}`;
+                        atRule.params = newName;
                     }
                 });
 
                 root.walkDecls(decl => {
                     if (decl.prop.startsWith("--")) {
+                        debugLog("walkDecls", `Found: ${decl.prop} skipping`)
                         decl.prop = `--${this.obfuscateName(decl.prop.substring(2))}`
                     }
 
                     const parsedValue = valueParser(decl.value);
                     parsedValue.walk(node => {
-                        if (node.type === 'function' && node.value === 'var' && node.nodes[0]) {
-                            node.nodes[0].value = `--${this.obfuscateName(node.nodes[0].value.substring(2))}`;
+                        debugLog("walkDecls", `Found: ${node.type} ${node.value}`)
+
+                        if (node.type === 'word' && node.value.startsWith('--')) {
+                            node.value = `--${this.obfuscateName(node.value.substring(2))}`;
                         }
                     });
                     decl.value = parsedValue.toString();
@@ -243,22 +272,29 @@ export class CSSShuffle {
             const classes = $(e).attr('class').split(/\s+/).filter(Boolean);
             const newClasses = classes.map(cls => this.getObfuscateName(cls) || cls);
             $(e).attr('class', newClasses.join(' '));
+            debugLog("html class", `${classes} -> ${newClasses}`)
         })
 
         $('[id]').each((_, e) => {
             const id = $(e).attr('id');
-            $(e).attr('id', this.getObfuscateName(id));
+            const newId = this.getObfuscateName(id)
+            $(e).attr('id', newId);
+            debugLog("html id", `${id} -> ${newId}`)
         })
 
         $('[for]').each((_, e) => {
             const id = $(e).attr('for');
-            $(e).attr('for', this.getObfuscateName(id));
+            const newId = this.getObfuscateName(id)
+            $(e).attr('for', `${id} -> ${newId}`);
+            debugLog("html for", `${id} -> ${newId}`)
         })
 
         $('a[href^="#"]').each((_, e) => {
             const href = $(e).attr('href');
             const target = href.slice(1);
-            $(e).attr('href', '#' + this.getObfuscateName(target));
+            const newTarget = this.getObfuscateName(target)
+            $(e).attr('href', '#' + newTarget);
+            debugLog("html a[href^=\"#\"]", `${target} -> ${newTarget}`)
         });
 
         const scripts = $('script').toArray();
