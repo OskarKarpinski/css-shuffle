@@ -83,21 +83,3 @@ export function debugReplace(
       ` ${DIM}(in ${source})${RESET}`,
   );
 }
-
-/**
- * Log a summary / completion message.
- */
-export function debugSummary(message: string) {
-  if (!DEBUG_ENABLED) return;
-  const color = LEVEL_COLORS.done;
-  console.log(`${color}  ◆${RESET} ${message}`);
-}
-
-/**
- * Log an error message.
- */
-export function debugError(message: string) {
-  if (!DEBUG_ENABLED) return;
-  const color = LEVEL_COLORS.error;
-  console.log(`${color}  ✖${RESET} ${message}`);
-}

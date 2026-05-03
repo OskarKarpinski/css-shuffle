@@ -7,7 +7,7 @@ import { Renamer } from "./renamer.js";
 import { CSSObfuscator } from "./css-obfuscator.js";
 import { JSObfuscator } from "./js-obfuscator.js";
 import { HTMLObfuscator } from "./html-obfuscator.js";
-import { debugLog, debugHeader, debugSummary } from "./logger.js";
+import { debugLog, debugHeader } from "./logger.js";
 
 export class CSSShuffle {
   /** Generates and tracks obfuscated name mappings. */
@@ -63,6 +63,10 @@ export class CSSShuffle {
       absolute: true,
     });
     const cssFiles = await globby(["**/*.css"], {
+      cwd: dist,
+      absolute: true,
+    });
+    const jsFiles = await globby(["**/*.js"], {
       cwd: dist,
       absolute: true,
     });
@@ -143,7 +147,24 @@ export class CSSShuffle {
       }
     }
 
-    debugSummary("Obfuscation complete");
+    debugHeader("Replacing names in JS");
+    for (const jsFile of jsFiles) {
+      debugLog("JS file (names)", jsFile);
+      const jsContent = fs.readFileSync(jsFile, "utf-8");
+      let newJsContent = await this.jsObfuscator.obfuscate(jsContent);
+      fs.writeFileSync(jsFile, newJsContent, "utf-8");
+
+      let originalSize = jsContent.length;
+      const newSize = newJsContent.length;
+      if (originalSize != newSize) {
+        const fileName = jsFile.replace(dist, "");
+
+        this.stats.set(fileName, {
+          originalSize: originalSize,
+          newSize: newSize,
+        });
+      }
+    }
   }
 
   printStatsTable() {
@@ -159,6 +180,5 @@ export class CSSShuffle {
     });
 
     table.printTable();
-    debugSummary("Stats table printed");
   }
 }
