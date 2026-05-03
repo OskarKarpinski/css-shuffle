@@ -14,7 +14,14 @@ import * as t from "@babel/types";
 
 import { Renamer } from "./renamer.js";
 import { isDomElement } from "./javascript-obfuscator.js";
-import { debugLog } from "./logger.js";
+import {
+  debugLog,
+  debugHeader,
+  debugScan,
+  debugReplace,
+  debugSummary,
+  debugError,
+} from "./logger.js";
 
 export class CSSShuffle {
   private renamer = new Renamer();
@@ -101,16 +108,9 @@ export class CSSShuffle {
         ) {
           args.forEach((arg, i) => {
             const val = getStringValue(arg);
-            debugLog(
-              "javascript classList.add/remove/toggle/contains/replace",
-              `Found: ${val}`,
-            );
             if (val !== null) {
               const obf = this.getObfuscateName(val);
-              debugLog(
-                "javascript classList.add/remove/toggle/contains/replace",
-                `${val} -> ${obf}`,
-              );
+              debugReplace("JS", "classList", "class", val, obf);
               if (obf) args[i] = createStringNode(arg, obf);
             }
           });
@@ -123,17 +123,11 @@ export class CSSShuffle {
           isDomElement(object, path.scope) // ← guard
         ) {
           const val = getStringValue(args[0]);
-          debugLog(
-            "javascript querySelector / querySelectorAll",
-            `Found: ${val}`,
-          );
           if (val !== null) {
+            debugScan("JS", "querySelector", "selector", val);
             const obf = this.obfuscateSelector(val);
-            debugLog(
-              "javascript querySelector / querySelectorAll",
-              `${val} -> ${obf}`,
-            );
-            args[0] = createStringNode(args[0], this.obfuscateSelector(val));
+            debugReplace("JS", "querySelector", "selector", val, obf);
+            args[0] = createStringNode(args[0], obf);
           }
         }
 
@@ -144,10 +138,9 @@ export class CSSShuffle {
           isDomElement(object, path.scope) // ← guard
         ) {
           const val = getStringValue(args[0]);
-          debugLog("javascript getElementById", `Found: ${val}`);
           if (val !== null) {
             const obf = this.getObfuscateName(val);
-            debugLog("javascript getElementById", `${val} -> ${obf}`);
+            debugReplace("JS", "getElementById", "id", val, obf);
             if (obf) args[0] = createStringNode(args[0], obf);
           }
         }
@@ -159,10 +152,9 @@ export class CSSShuffle {
           isDomElement(object, path.scope) // ← guard
         ) {
           const val = getStringValue(args[0]);
-          debugLog("javascript getElementsByClassName", `Found: ${val}`);
           if (val !== null) {
             const obf = this.getObfuscateName(val);
-            debugLog("javascript getElementsByClassName", `${val} -> ${obf}`);
+            debugReplace("JS", "getElementsByClassName", "class", val, obf);
             if (obf) args[0] = createStringNode(args[0], obf);
           }
         }
@@ -175,21 +167,17 @@ export class CSSShuffle {
         ) {
           const attrName = getStringValue(args[0]);
           const attrVal = getStringValue(args[1]);
-          debugLog(
-            "javascript setAttribute",
-            `Found: ${attrName} - ${attrVal}`,
-          );
           if (attrName !== null && attrVal !== null) {
             if (attrName === "class") {
               const newVal = attrVal
                 .split(/\s+/)
                 .map((cls) => this.getObfuscateName(cls) || cls)
                 .join(" ");
-              debugLog("javascript setAttribute", `${args[1]} - ${newVal}`);
+              debugReplace("JS", "setAttribute", "class", attrVal, newVal);
               args[1] = createStringNode(args[1], newVal);
             } else if (attrName === "id") {
               const obf = this.getObfuscateName(attrVal);
-              debugLog("javascript setAttribute", `${args[1]} - ${obf}`);
+              debugReplace("JS", "setAttribute", "id", attrVal, obf);
               if (obf) args[1] = createStringNode(args[1], obf);
             }
           }
@@ -205,13 +193,12 @@ export class CSSShuffle {
           isDomElement(left.object, path.scope) // ← guard
         ) {
           const val = getStringValue(right);
-          debugLog("javascript element.className", `Found: ${val}`);
           if (val !== null) {
             const newVal = val
               .split(/\s+/)
               .map((cls) => this.getObfuscateName(cls) || cls)
               .join(" ");
-            debugLog("javascript element.className", `${val} -> ${newVal}`);
+            debugReplace("JS", "className", "class", val, newVal);
             path.node.right = createStringNode(right, newVal);
           }
         }
@@ -224,14 +211,15 @@ export class CSSShuffle {
   async obfuscateCSS(css: string): Promise<string> {
     return await postcss([
       (root: Root) => {
+        debugHeader("Obfuscating CSS selectors");
         root.walkRules((rule) => {
           rule.selector = selectorParser((selectors) => {
             selectors.walkClasses((node) => {
-              debugLog("walkClasses", `Found: ${node.value}`);
+              debugScan("CSS", rule.selector, "class", node.value);
               node.value = this.obfuscateName(node.value);
             });
             selectors.walkIds((node) => {
-              debugLog("walkIds", `Found: ${node.value}`);
+              debugScan("CSS", rule.selector, "id", node.value);
               node.value = this.obfuscateName(node.value);
             });
           }).processSync(rule.selector);
@@ -240,25 +228,40 @@ export class CSSShuffle {
         // Obfuscated properties like this:
         //  @property --tw-font-weight{syntax:"*";inherits:false}
         root.walkAtRules("property", (atRule) => {
-          debugLog("walkAtRules('property')", `Found: ${atRule.params}`);
+          debugScan("CSS", "@property", "at-rule", atRule.params);
 
           if (atRule.params.startsWith("--")) {
+            const original = atRule.params;
             const newName = `--${this.obfuscateName(atRule.params.substring(2))}`;
+            debugReplace(
+              "CSS",
+              "@property",
+              "custom property",
+              original,
+              newName,
+            );
             atRule.params = newName;
           }
         });
 
         root.walkDecls((decl) => {
           if (decl.prop.startsWith("--")) {
-            debugLog("walkDecls", `Found: ${decl.prop} skipping`);
-            decl.prop = `--${this.obfuscateName(decl.prop.substring(2))}`;
+            const original = decl.prop;
+            const newName = `--${this.obfuscateName(decl.prop.substring(2))}`;
+            debugReplace(
+              "CSS",
+              decl.prop,
+              "custom property",
+              original,
+              newName,
+            );
+            decl.prop = newName;
           }
 
           const parsedValue = valueParser(decl.value);
           parsedValue.walk((node) => {
-            debugLog("walkDecls", `Found: ${node.type} ${node.value}`);
-
             if (node.type === "word" && node.value.startsWith("--")) {
+              debugScan("CSS value", decl.prop, "var reference", node.value);
               node.value = `--${this.obfuscateName(node.value.substring(2))}`;
             }
           });
@@ -306,21 +309,27 @@ export class CSSShuffle {
         (cls) => this.getObfuscateName(cls) || cls,
       );
       $(e).attr("class", newClasses.join(" "));
-      debugLog("html class", `${classes} -> ${newClasses}`);
+      debugReplace(
+        "HTML",
+        "[class]",
+        "class",
+        classes.join(" "),
+        newClasses.join(" "),
+      );
     });
 
     $("[id]").each((_, e) => {
       const id = $(e).attr("id");
       const newId = this.getObfuscateName(id);
       $(e).attr("id", newId);
-      debugLog("html id", `${id} -> ${newId}`);
+      debugReplace("HTML", "[id]", "id", id, newId);
     });
 
     $("[for]").each((_, e) => {
       const id = $(e).attr("for");
       const newId = this.getObfuscateName(id);
       $(e).attr("for", newId);
-      debugLog("html for", `${id} -> ${newId}`);
+      debugReplace("HTML", "[for]", "id", id, newId);
     });
 
     $('a[href^="#"]').each((_, e) => {
@@ -328,7 +337,7 @@ export class CSSShuffle {
       const target = href.slice(1);
       const newTarget = this.getObfuscateName(target);
       $(e).attr("href", "#" + newTarget);
-      debugLog('html a[href^="#"]', `${target} -> ${newTarget}`);
+      debugReplace("HTML", 'a[href^="#"]', "anchor", target, newTarget);
     });
 
     const scripts = $("script").toArray();
@@ -364,8 +373,11 @@ export class CSSShuffle {
     });
     const cssFiles = await globby(["**/*.css"], { cwd: dist, absolute: true });
 
+    debugHeader("Obfuscating CSS files");
+
     // Obfuscate CSS files
     for (const cssFile of cssFiles) {
+      debugLog("CSS file", cssFile);
       const cssContent = fs.readFileSync(cssFile, "utf-8");
       const obfuscatedCss = await this.obfuscateCSS(cssContent);
       fs.writeFileSync(cssFile, obfuscatedCss, "utf-8");
@@ -381,8 +393,11 @@ export class CSSShuffle {
       }
     }
 
+    debugHeader("Obfuscating CSS in HTML <style> tags");
+
     // Obfuscate CSS in <style> tag in HTML files
     for (const htmlFile of htmlFiles) {
+      debugLog("HTML file (CSS)", htmlFile);
       const htmlContent = fs.readFileSync(htmlFile, "utf-8");
       let obfuscatedHtmlContent = await this.obfuscateCSSInHtml(htmlContent);
       fs.writeFileSync(htmlFile, obfuscatedHtmlContent, "utf-8");
@@ -398,8 +413,11 @@ export class CSSShuffle {
       }
     }
 
+    debugHeader("Replacing names in HTML");
+
     // Export export obfuscated names to HTML
     for (const htmlFile of htmlFiles) {
+      debugLog("HTML file (names)", htmlFile);
       const htmlContent = fs.readFileSync(htmlFile, "utf-8");
       let newHtmlContent = await this.replaceNamesInHtml(htmlContent);
       fs.writeFileSync(htmlFile, newHtmlContent, "utf-8");
@@ -419,6 +437,8 @@ export class CSSShuffle {
         });
       }
     }
+
+    debugSummary("Obfuscation complete");
   }
 
   printStatsTable() {
@@ -434,5 +454,6 @@ export class CSSShuffle {
     });
 
     table.printTable();
+    debugSummary("Stats table printed");
   }
 }
