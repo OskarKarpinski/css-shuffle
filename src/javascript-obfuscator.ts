@@ -1,6 +1,6 @@
 import * as t from "@babel/types";
 
-// DOM-producing methods that return elements
+/** Built-in DOM methods that return element references. */
 const DOM_ELEMENT_SOURCES = new Set([
   "getElementById",
   "getElementsByClassName",
@@ -18,7 +18,7 @@ const DOM_ELEMENT_SOURCES = new Set([
   "previousElementSibling",
 ]);
 
-// Properties on DOM elements that return elements
+/** Properties on DOM elements that return child or document references. */
 const DOM_ELEMENT_PROPERTIES = new Set([
   "parentElement",
   "firstElementChild",
@@ -31,6 +31,13 @@ const DOM_ELEMENT_PROPERTIES = new Set([
   "documentElement",
 ]);
 
+/**
+ * Check whether a Babel AST node is guaranteed to resolve to a DOM element.
+ *
+ * Handles call expressions (document.getElementById, element.querySelector),
+ * member expressions (document.body), and identifiers by tracing variable
+ * bindings and function callback parameters (NodeList.forEach, etc.).
+ */
 export function isDomElement(node: t.Node, scope: any): boolean {
   // document.getElementById(...) / document.querySelector(...) inline
   if (t.isCallExpression(node)) {

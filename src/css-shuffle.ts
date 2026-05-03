@@ -24,37 +24,48 @@ import {
 } from "./logger.js";
 
 export class CSSShuffle {
+  /** Generates and tracks obfuscated name mappings. */
   private renamer = new Renamer();
 
+  /** Tracks file size changes for summary reporting. */
   private readonly stats = new Map<
     string,
     { originalSize: number; newSize: number }
   >();
 
+  /** Rename a name and store the mapping. */
   private obfuscateName(originalName: string): string {
     const newName = this.renamer.rename(originalName);
     debugLog("obfuscate", `${originalName} -> ${newName}`);
     return newName;
   }
 
+  /** Retrieve an obfuscated name, or return the original if not found. */
   private getObfuscateName(key: string): string {
     return this.renamer.get(key);
   }
 
+  /** Return the full original-to-obfuscated mapping. */
   getMapping(): Map<string, string> {
     return this.renamer.renames;
   }
 
+  /** Return the mapping as a formatted JSON string. */
   getMappingJSON(): string {
     return JSON.stringify(Object.fromEntries(this.getMapping()), null, 2);
   }
 
+  /** Write the mapping JSON to a file. */
   saveMappingJSON(path: string) {
     const mapping = this.getMappingJSON();
 
     fs.writeFileSync(path, mapping);
   }
 
+  /**
+   * Parse JavaScript source and obfuscate all CSS class/ID references
+   * in DOM API calls and property assignments.
+   */
   async obfuscateJS(js: string): Promise<string> {
     const ast = parser.parse(js, {
       sourceType: "script",
@@ -97,7 +108,10 @@ export class CSSShuffle {
 
         if (!t.isIdentifier(method)) return;
 
-        // ── classList.add/remove/toggle/contains/replace ──────────────────
+        /**
+         * Handle classList.add/remove/toggle/contains/replace calls on DOM elements.
+         * Obfuscates class names passed as arguments.
+         */
         if (
           t.isMemberExpression(object) &&
           t.isIdentifier(object.property, { name: "classList" }) &&
@@ -116,7 +130,10 @@ export class CSSShuffle {
           });
         }
 
-        // ── querySelector / querySelectorAll ──────────────────────────────
+        /**
+         * Handle querySelector / querySelectorAll calls.
+         * Obfuscates class and ID selectors in the query string.
+         */
         if (
           ["querySelector", "querySelectorAll"].includes(method.name) &&
           args.length === 1 &&
@@ -131,7 +148,9 @@ export class CSSShuffle {
           }
         }
 
-        // ── getElementById ────────────────────────────────────────────────
+        /**
+         * Handle getElementById calls. Obfuscates the ID argument.
+         */
         if (
           method.name === "getElementById" &&
           args.length === 1 &&
@@ -145,7 +164,9 @@ export class CSSShuffle {
           }
         }
 
-        // ── getElementsByClassName ────────────────────────────────────────
+        /**
+         * Handle getElementsByClassName calls. Obfuscates the class name argument.
+         */
         if (
           method.name === "getElementsByClassName" &&
           args.length === 1 &&
@@ -159,7 +180,10 @@ export class CSSShuffle {
           }
         }
 
-        // ── setAttribute('class'/'id', ...) ───────────────────────────────
+        /**
+         * Handle setAttribute('class'/'id', ...) calls.
+         * Obfuscates the class or ID value in the second argument.
+         */
         if (
           method.name === "setAttribute" &&
           args.length === 2 &&
@@ -184,7 +208,10 @@ export class CSSShuffle {
         }
       },
 
-      // ── element.className = 'foo bar' ─────────────────────────────────────
+      /**
+       * Handle element.className = 'foo bar' assignments.
+       * Obfuscates each class name in the assigned string.
+       */
       AssignmentExpression: (path) => {
         const { left, right } = path.node;
         if (
@@ -208,6 +235,11 @@ export class CSSShuffle {
     return generate.default(ast, { retainLines: true }, js).code;
   }
 
+  /**
+   * Parse CSS source and obfuscate all class selectors, ID selectors,
+   * and custom property names (--*) throughout rules, @property at-rules,
+   * and var() references.
+   */
   async obfuscateCSS(css: string): Promise<string> {
     return await postcss([
       (root: Root) => {
@@ -287,7 +319,10 @@ export class CSSShuffle {
     return $.html();
   }
 
-  // Reuse your existing CSS selector obfuscation logic
+  /**
+   * Obfuscate class and ID references inside a CSS selector string
+   * (used for querySelector values that are not full CSS files).
+   */
   private obfuscateSelector(selector: string): string {
     return selector
       .replace(/\.([a-zA-Z0-9_-]+)/g, (_, cls) => {
@@ -427,7 +462,8 @@ export class CSSShuffle {
       if (originalSize != newSize) {
         const fileName = htmlFile.replace(dist, "");
 
-        // this file maybe already obfuscated so get the really orginal file size
+        // Track original size for files that may have been partially obfuscated
+        // in a previous pass (e.g. inline CSS in <style> was already processed)
         const fileStats = this.stats.get(fileName);
         if (fileStats != undefined) originalSize = fileStats.originalSize;
 

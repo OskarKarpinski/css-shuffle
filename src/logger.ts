@@ -16,7 +16,9 @@ const LEVEL_COLORS = {
   error: "\x1b[31m", // red
 } as const;
 
-// ── Debug enablement
+/**
+ * Debug is enabled when CSS_SHUFFLE=debug or CSS_SHUFFLE_DEBUG=1/true.
+ */
 const DEBUG_ENABLED =
   process.env.CSS_SHUFFLE === "debug" ||
   process.env.CSS_SHUFFLE_DEBUG === "1" ||
