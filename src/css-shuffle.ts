@@ -285,7 +285,7 @@ export class CSSShuffle {
         $('[for]').each((_, e) => {
             const id = $(e).attr('for');
             const newId = this.getObfuscateName(id)
-            $(e).attr('for', `${id} -> ${newId}`);
+            $(e).attr('for', newId);
             debugLog("html for", `${id} -> ${newId}`)
         })
 
