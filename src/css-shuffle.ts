@@ -66,7 +66,7 @@ export class CSSShuffle {
       cwd: dist,
       absolute: true,
     });
-    const jsFiles = await globby(["**/*.js"], {
+    const jsFiles = await globby(["**/*.js", "**/*.mjs", "**/*.cjs"], {
       cwd: dist,
       absolute: true,
     });
