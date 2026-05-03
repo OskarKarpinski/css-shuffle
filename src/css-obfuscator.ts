@@ -81,20 +81,4 @@ export class CSSObfuscator {
       .process(css, { from: undefined })
       .then((result) => result.css);
   }
-
-  /**
-   * Obfuscate class and ID references inside a CSS selector string
-   * (used for querySelector values that are not full CSS files).
-   */
-  obfuscateSelector(selector: string): string {
-    return selector
-      .replace(/\.([a-zA-Z0-9_-]+)/g, (_, cls) => {
-        const obf = this.renamer.get(cls);
-        return obf ? `.${obf}` : `.${cls}`;
-      })
-      .replace(/#([a-zA-Z0-9_-]+)/g, (_, id) => {
-        const obf = this.renamer.get(id);
-        return obf ? `#${obf}` : `#${id}`;
-      });
-  }
 }
