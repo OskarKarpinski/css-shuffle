@@ -21,7 +21,7 @@ export class CSSShuffle {
 
   private readonly stats = new Map<
     string,
-    { orginalSize: number; newSize: number }
+    { originalSize: number; newSize: number }
   >();
 
   private obfuscateName(originalName: string): string {
@@ -375,7 +375,7 @@ export class CSSShuffle {
       if (oldSize != newSize) {
         const fileName = cssFile.replace(dist, "");
         this.stats.set(fileName, {
-          orginalSize: oldSize,
+          originalSize: oldSize,
           newSize: newSize,
         });
       }
@@ -392,7 +392,7 @@ export class CSSShuffle {
       if (oldSize != newSize) {
         const fileName = htmlFile.replace(dist, "");
         this.stats.set(fileName, {
-          orginalSize: oldSize,
+          originalSize: oldSize,
           newSize: newSize,
         });
       }
@@ -404,17 +404,17 @@ export class CSSShuffle {
       let newHtmlContent = await this.replaceNamesInHtml(htmlContent);
       fs.writeFileSync(htmlFile, newHtmlContent, "utf-8");
 
-      let orginalSize = htmlContent.length;
+      let originalSize = htmlContent.length;
       const newSize = newHtmlContent.length;
-      if (orginalSize != newSize) {
+      if (originalSize != newSize) {
         const fileName = htmlFile.replace(dist, "");
 
         // this file maybe already obfuscated so get the really orginal file size
         const fileStats = this.stats.get(fileName);
-        if (fileStats != undefined) orginalSize = fileStats.orginalSize;
+        if (fileStats != undefined) originalSize = fileStats.originalSize;
 
         this.stats.set(fileName, {
-          orginalSize: orginalSize,
+          originalSize: originalSize,
           newSize: newSize,
         });
       }
@@ -427,9 +427,9 @@ export class CSSShuffle {
     this.stats.forEach((stats, file) => {
       table.addRow({
         File: file,
-        "Original Size": prettyBytes(stats.orginalSize),
+        "Original Size": prettyBytes(stats.originalSize),
         "New Size": prettyBytes(stats.newSize),
-        Reduced: `${(((stats.orginalSize - stats.newSize) / stats.orginalSize) * 100) | 0}%`,
+        Reduced: `${(((stats.originalSize - stats.newSize) / stats.originalSize) * 100) | 0}%`,
       });
     });
 
