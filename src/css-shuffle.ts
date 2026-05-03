@@ -67,6 +67,14 @@ export class CSSShuffle {
       absolute: true,
     });
 
+    // Scanning HTML files for protecting some names like when on the page is id="projects" and href="/#projects"
+    debugHeader("Scanning HTML files for protected names");
+    for (const htmlFile of htmlFiles) {
+      debugLog("HTML file", htmlFile);
+      const htmlContent = fs.readFileSync(htmlFile, "utf-8");
+      await this.htmlObfuscator.searchForProtectedNames(htmlContent);
+    }
+
     debugHeader("Obfuscating CSS files");
 
     // Obfuscate CSS files

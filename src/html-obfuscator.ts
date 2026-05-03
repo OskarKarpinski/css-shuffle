@@ -12,19 +12,14 @@ export class HTMLObfuscator {
     private jsObfuscator: JSObfuscator,
   ) {}
 
-  /**
-   * Obfuscate class and ID references inside a CSS selector string.
-   */
-  private obfuscateSelector(selector: string): string {
-    return selector
-      .replace(/\.([a-zA-Z0-9_-]+)/g, (_, cls) => {
-        const obf = this.renamer.get(cls);
-        return obf ? `.${obf}` : `.${cls}`;
-      })
-      .replace(/#([a-zA-Z0-9_-]+)/g, (_, id) => {
-        const obf = this.renamer.get(id);
-        return obf ? `#${obf}` : `#${id}`;
-      });
+  async searchForProtectedNames(html: string): Promise<void> {
+    const $ = cheerio.load(html);
+    $('[href^="#"]').each((_, e) => {
+      const href = $(e).attr("href");
+      const target = href.slice(1);
+      this.renamer.protect(target);
+      debugLog("HTML", `Protected name: ${target}`);
+    });
   }
 
   /**
@@ -53,9 +48,7 @@ export class HTMLObfuscator {
 
     $("[class]").each((_, e) => {
       const classes = $(e).attr("class").split(/\s+/).filter(Boolean);
-      const newClasses = classes.map(
-        (cls) => this.renamer.get(cls) || cls,
-      );
+      const newClasses = classes.map((cls) => this.renamer.get(cls) || cls);
       $(e).attr("class", newClasses.join(" "));
       debugReplace(
         "HTML",
@@ -78,14 +71,6 @@ export class HTMLObfuscator {
       const newId = this.renamer.get(id);
       $(e).attr("for", newId);
       debugReplace("HTML", "[for]", "id", id, newId);
-    });
-
-    $('a[href^="#"]').each((_, e) => {
-      const href = $(e).attr("href");
-      const target = href.slice(1);
-      const newTarget = this.renamer.get(target);
-      $(e).attr("href", "#" + newTarget);
-      debugReplace("HTML", 'a[href^="#"]', "anchor", target, newTarget);
     });
 
     const scripts = $("script").toArray();

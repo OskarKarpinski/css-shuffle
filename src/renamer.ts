@@ -4,10 +4,17 @@ const NEXT_CHARS = START_CHARS + "0123456789";
 export class Renamer {
   private nextIndex = 0;
 
+  /** Array of protected names that should not be obfuscated */
+  readonly protected = new Set<string>();
+
   /** Map of original names to their new obfuscated names */
   readonly renames = new Map<string, string>();
 
   rename(key: string): string {
+    if (this.protected.has(key)) {
+      return key;
+    }
+
     if (this.renames.has(key)) {
       return this.renames.get(key)!;
     }
@@ -33,8 +40,18 @@ export class Renamer {
   }
 
   get(key: string): string {
+    if (this.protected.has(key)) {
+      return key;
+    }
+
     let value = this.renames.get(key);
     if (value == undefined) return key;
     return value;
+  }
+
+  protect(name: string): void {
+    if (!this.protected.has(name)) {
+      this.protected.add(name);
+    }
   }
 }
