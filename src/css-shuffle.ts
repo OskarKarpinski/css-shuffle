@@ -99,47 +99,20 @@ export class CSSShuffle {
       }
     }
 
-    debugHeader("Obfuscating CSS in HTML <style> tags");
+    debugHeader("Processing HTML files");
 
-    // Obfuscate CSS in <style> tag in HTML files
+    // Process each HTML file in a single pass: inline CSS obfuscation,
+    // class/id/for replacement, and inline script obfuscation
     for (const htmlFile of htmlFiles) {
-      debugLog("HTML file (CSS)", htmlFile);
+      debugLog("HTML file", htmlFile);
       const htmlContent = fs.readFileSync(htmlFile, "utf-8");
-      let obfuscatedHtmlContent =
-        await this.htmlObfuscator.obfuscateCSSInHtml(htmlContent);
-      fs.writeFileSync(htmlFile, obfuscatedHtmlContent, "utf-8");
+      const { result, originalSize } =
+        await this.htmlObfuscator.processHtml(htmlContent);
+      fs.writeFileSync(htmlFile, result, "utf-8");
 
-      const oldSize = htmlContent.length;
-      const newSize = obfuscatedHtmlContent.length;
-      if (oldSize != newSize) {
-        const fileName = htmlFile.replace(dist, "");
-        this.stats.set(fileName, {
-          originalSize: oldSize,
-          newSize: newSize,
-        });
-      }
-    }
-
-    debugHeader("Replacing names in HTML");
-
-    // Export obfuscated names to HTML
-    for (const htmlFile of htmlFiles) {
-      debugLog("HTML file (names)", htmlFile);
-      const htmlContent = fs.readFileSync(htmlFile, "utf-8");
-      let newHtmlContent =
-        await this.htmlObfuscator.replaceNamesInHtml(htmlContent);
-      fs.writeFileSync(htmlFile, newHtmlContent, "utf-8");
-
-      let originalSize = htmlContent.length;
-      const newSize = newHtmlContent.length;
+      const newSize = result.length;
       if (originalSize != newSize) {
         const fileName = htmlFile.replace(dist, "");
-
-        // Track original size for files that may have been partially obfuscated
-        // in a previous pass (e.g. inline CSS in <style> was already processed)
-        const fileStats = this.stats.get(fileName);
-        if (fileStats != undefined) originalSize = fileStats.originalSize;
-
         this.stats.set(fileName, {
           originalSize: originalSize,
           newSize: newSize,

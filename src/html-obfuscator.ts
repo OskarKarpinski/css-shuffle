@@ -23,10 +23,17 @@ export class HTMLObfuscator {
   }
 
   /**
-   * Obfuscate CSS found inside <style> tags in HTML.
+   * Process an HTML file in a single pass: obfuscate CSS in <style> tags,
+   * replace class/id/for attributes, and obfuscate inline <script> contents.
+   * Returns the transformed HTML along with the original size for stats tracking.
    */
-  async obfuscateCSSInHtml(html: string): Promise<string> {
+  async processHtml(
+    html: string,
+  ): Promise<{ result: string; originalSize: number }> {
+    const originalSize = html.length;
     const $ = cheerio.load(html);
+
+    // Obfuscate CSS in <style> tags
     const styles = $("style").toArray();
     for (const style of styles) {
       const $style = $(style);
@@ -36,16 +43,8 @@ export class HTMLObfuscator {
         $style.html(obfuscatedContent);
       }
     }
-    return $.html();
-  }
 
-  /**
-   * Replace obfuscated class and ID names in HTML attributes
-   * and obfuscate inline <script> contents.
-   */
-  async replaceNamesInHtml(html: string): Promise<string> {
-    const $ = cheerio.load(html);
-
+    // Replace class attributes
     $("[class]").each((_, e) => {
       const classes = $(e).attr("class").split(/\s+/).filter(Boolean);
       const newClasses = classes.map((cls) => this.renamer.get(cls) || cls);
@@ -59,6 +58,7 @@ export class HTMLObfuscator {
       );
     });
 
+    // Replace id attributes
     $("[id]").each((_, e) => {
       const id = $(e).attr("id");
       const newId = this.renamer.get(id);
@@ -66,6 +66,7 @@ export class HTMLObfuscator {
       debugReplace("HTML", "[id]", "id", id, newId);
     });
 
+    // Replace for attributes
     $("[for]").each((_, e) => {
       const id = $(e).attr("for");
       const newId = this.renamer.get(id);
@@ -73,6 +74,7 @@ export class HTMLObfuscator {
       debugReplace("HTML", "[for]", "id", id, newId);
     });
 
+    // Obfuscate inline <script> contents
     const scripts = $("script").toArray();
     for (const script of scripts) {
       const $script = $(script);
@@ -83,6 +85,6 @@ export class HTMLObfuscator {
       }
     }
 
-    return $.html();
+    return { result: $.html(), originalSize };
   }
 }
