@@ -74,6 +74,30 @@ export class HTMLObfuscator {
       debugReplace("HTML", "[for]", "id", id, newId);
     });
 
+    // Replace ARIA ID-reference attributes
+    const ariaIdAttrs = [
+      "aria-labelledby",
+      "aria-describedby",
+      "aria-controls",
+      "aria-owns",
+      "aria-activedescendant",
+      "aria-details",
+      "aria-errormessage",
+      "aria-flowto",
+    ];
+    for (const attr of ariaIdAttrs) {
+      $(`[${attr}]`).each((_, e) => {
+        const value = $(e).attr(attr);
+        // These attributes can contain multiple space-separated IDs
+        const newValue = value
+          .split(/\s+/)
+          .map((id) => this.renamer.get(id))
+          .join(" ");
+        $(e).attr(attr, newValue);
+        debugReplace("HTML", attr, "id", value, newValue);
+      });
+    }
+
     // Obfuscate inline <script> contents
     const scripts = $("script").toArray();
     for (const script of scripts) {
