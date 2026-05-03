@@ -2,6 +2,7 @@ import * as parser from "@babel/parser";
 import traverse from "@babel/traverse";
 import generate from "@babel/generator";
 import * as t from "@babel/types";
+import selectorParser from "postcss-selector-parser";
 
 import { Renamer } from "./renamer.js";
 import { debugReplace } from "./logger.js";
@@ -219,17 +220,23 @@ export class JSObfuscator {
    * Obfuscate class and ID references inside a CSS selector string.
    */
   private obfuscateSelector(selector: string): string {
-    const obfuscated = selector
-      .replace(/\.([a-zA-Z0-9_-]+)/g, (_, cls) => {
-        const obf = this.getObfuscateName(cls);
-        return obf ? `.${obf}` : `.${cls}`;
-      })
-      .replace(/#([a-zA-Z0-9_-]+)/g, (_, id) => {
-        const obf = this.getObfuscateName(id);
-        return obf ? `#${obf}` : `#${id}`;
+    const obfuscated = selectorParser((selectors) => {
+      selectors.walkClasses((node) => {
+        const obf = this.getObfuscateName(node.value);
+        if (obf) {
+          debugReplace("JS", "querySelector", "class", node.value, obf);
+          node.value = obf;
+        }
       });
+      selectors.walkIds((node) => {
+        const obf = this.getObfuscateName(node.value);
+        if (obf) {
+          debugReplace("JS", "querySelector", "id", node.value, obf);
+          node.value = obf;
+        }
+      });
+    }).processSync(selector);
 
-    debugReplace("JS", "querySelector", "selector", selector, obfuscated);
     return obfuscated;
   }
 
