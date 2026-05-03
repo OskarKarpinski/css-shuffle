@@ -42,7 +42,7 @@ export class JSObfuscator {
   constructor(private renamer: Renamer) {}
 
   private getObfuscateName(key: string): string {
-    return this.renamer.get(key);
+    return this.renamer.rename(key);
   }
 
   /**

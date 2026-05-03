@@ -14,11 +14,14 @@ export class HTMLObfuscator {
 
   async searchForProtectedNames(html: string): Promise<void> {
     const $ = cheerio.load(html);
-    $('[href^="#"]').each((_, e) => {
+    $('[href*="#"]').each((_, e) => {
       const href = $(e).attr("href");
-      const target = href.slice(1);
-      this.renamer.protect(target);
-      debugLog("HTML", `Protected name: ${target}`);
+      const hashIndex = href.indexOf("#");
+      const fragment = href.slice(hashIndex + 1);
+      if (fragment) {
+        this.renamer.protect(fragment);
+        debugLog("HTML", `Protected name: ${fragment}`);
+      }
     });
   }
 
@@ -47,7 +50,7 @@ export class HTMLObfuscator {
     // Replace class attributes
     $("[class]").each((_, e) => {
       const classes = $(e).attr("class").split(/\s+/).filter(Boolean);
-      const newClasses = classes.map((cls) => this.renamer.get(cls) || cls);
+      const newClasses = classes.map((cls) => this.renamer.rename(cls));
       $(e).attr("class", newClasses.join(" "));
       debugReplace(
         "HTML",
@@ -61,7 +64,7 @@ export class HTMLObfuscator {
     // Replace id attributes
     $("[id]").each((_, e) => {
       const id = $(e).attr("id");
-      const newId = this.renamer.get(id);
+      const newId = this.renamer.rename(id);
       $(e).attr("id", newId);
       debugReplace("HTML", "[id]", "id", id, newId);
     });
@@ -69,7 +72,7 @@ export class HTMLObfuscator {
     // Replace for attributes
     $("[for]").each((_, e) => {
       const id = $(e).attr("for");
-      const newId = this.renamer.get(id);
+      const newId = this.renamer.rename(id);
       $(e).attr("for", newId);
       debugReplace("HTML", "[for]", "id", id, newId);
     });
@@ -91,7 +94,7 @@ export class HTMLObfuscator {
         // These attributes can contain multiple space-separated IDs
         const newValue = value
           .split(/\s+/)
-          .map((id) => this.renamer.get(id))
+          .map((id) => this.renamer.rename(id))
           .join(" ");
         $(e).attr(attr, newValue);
         debugReplace("HTML", attr, "id", value, newValue);
