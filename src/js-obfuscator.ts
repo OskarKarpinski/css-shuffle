@@ -1,7 +1,10 @@
 import * as parser from "@babel/parser";
-import traverse from "@babel/traverse";
-import generate from "@babel/generator";
+import _traverse from "@babel/traverse";
+import _generate from "@babel/generator";
 import * as t from "@babel/types";
+
+const traverse = typeof _traverse === "function" ? _traverse : _traverse.default;
+const generate = typeof _generate === "function" ? _generate : _generate.default;
 import selectorParser from "postcss-selector-parser";
 
 import { Renamer } from "./renamer.js";
@@ -82,7 +85,7 @@ export class JSObfuscator {
       return t.stringLiteral(value);
     };
 
-    traverse.default(ast, {
+    traverse(ast, {
       CallExpression: (path) => {
         const { callee, arguments: args } = path.node;
 
@@ -214,7 +217,7 @@ export class JSObfuscator {
       },
     });
 
-    return generate.default(ast, { retainLines: true }, js).code;
+    return generate(ast, { retainLines: true }, js).code;
   }
 
   /**
