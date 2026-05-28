@@ -1,5 +1,5 @@
 import fs from "fs";
-import { globby } from "globby";
+import path from "node:path";
 import { Table } from "console-table-printer";
 import prettyBytes from "pretty-bytes";
 
@@ -58,18 +58,11 @@ export class CSSShuffle {
       fs.cpSync(input, dist, { recursive: true });
     }
 
-    const htmlFiles = await globby(["**/*.html"], {
-      cwd: dist,
-      absolute: true,
-    });
-    const cssFiles = await globby(["**/*.css"], {
-      cwd: dist,
-      absolute: true,
-    });
-    const jsFiles = await globby(["**/*.js", "**/*.mjs", "**/*.cjs"], {
-      cwd: dist,
-      absolute: true,
-    });
+    const toAbsolute = (pattern: string) =>
+      fs.globSync(pattern, { cwd: dist }).map((f) => path.resolve(dist, f));
+    const htmlFiles = toAbsolute("**/*.html");
+    const cssFiles = toAbsolute("**/*.css");
+    const jsFiles = toAbsolute("**/*.{js,mjs,cjs}");
 
     // Scanning HTML files for protecting some names like when on the page is id="projects" and href="/#projects"
     debugHeader("Scanning HTML files for protected names");
