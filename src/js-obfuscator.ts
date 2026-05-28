@@ -63,7 +63,8 @@ export class JSObfuscator {
         node.quasis.length === 1 &&
         node.expressions.length === 0
       ) {
-        return node.quasis[0].value.cooked || node.quasis[0].value.raw;
+        const quasis = node.quasis[0]!;
+        return quasis.value.cooked || quasis.value.raw;
       }
       return null;
     };
@@ -122,10 +123,10 @@ export class JSObfuscator {
           args.length === 1 &&
           this.isDomElement(object, path.scope)
         ) {
-          const val = getStringValue(args[0]);
+          const val = getStringValue(args[0]!);
           if (val !== null) {
             const obf = this.obfuscateSelector(val);
-            args[0] = createStringNode(args[0], obf);
+            args[0] = createStringNode(args[0]!, obf);
           }
         }
 
@@ -137,11 +138,11 @@ export class JSObfuscator {
           args.length === 1 &&
           this.isDomElement(object, path.scope)
         ) {
-          const val = getStringValue(args[0]);
+          const val = getStringValue(args[0]!);
           if (val !== null) {
             const obf = this.getObfuscateName(val);
             debugReplace("JS", "getElementById", "id", val, obf);
-            if (obf) args[0] = createStringNode(args[0], obf);
+            if (obf) args[0] = createStringNode(args[0]!, obf);
           }
         }
 
@@ -153,11 +154,11 @@ export class JSObfuscator {
           args.length === 1 &&
           this.isDomElement(object, path.scope)
         ) {
-          const val = getStringValue(args[0]);
+          const val = getStringValue(args[0]!);
           if (val !== null) {
             const obf = this.getObfuscateName(val);
             debugReplace("JS", "getElementsByClassName", "class", val, obf);
-            if (obf) args[0] = createStringNode(args[0], obf);
+            if (obf) args[0] = createStringNode(args[0]!, obf);
           }
         }
 
@@ -170,8 +171,8 @@ export class JSObfuscator {
           args.length === 2 &&
           this.isDomElement(object, path.scope)
         ) {
-          const attrName = getStringValue(args[0]);
-          const attrVal = getStringValue(args[1]);
+          const attrName = getStringValue(args[0]!);
+          const attrVal = getStringValue(args[1]!);
           if (attrName !== null && attrVal !== null) {
             if (attrName === "class") {
               const newVal = attrVal
@@ -179,11 +180,11 @@ export class JSObfuscator {
                 .map((cls) => this.getObfuscateName(cls) || cls)
                 .join(" ");
               debugReplace("JS", "setAttribute", "class", attrVal, newVal);
-              args[1] = createStringNode(args[1], newVal);
+              args[1] = createStringNode(args[1]!, newVal);
             } else if (attrName === "id") {
               const obf = this.getObfuscateName(attrVal);
               debugReplace("JS", "setAttribute", "id", attrVal, obf);
-              if (obf) args[1] = createStringNode(args[1], obf);
+              if (obf) args[1] = createStringNode(args[1]!, obf);
             }
           }
         }

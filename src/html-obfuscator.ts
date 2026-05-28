@@ -15,7 +15,7 @@ export class HTMLObfuscator {
   async searchForProtectedNames(html: string): Promise<void> {
     const $ = cheerio.load(html);
     $('[href*="#"]').each((_, e) => {
-      const href = $(e).attr("href");
+      const href = $(e).attr("href")!;
       const hashIndex = href.indexOf("#");
       const fragment = href.slice(hashIndex + 1);
       if (fragment) {
@@ -49,7 +49,7 @@ export class HTMLObfuscator {
 
     // Replace class attributes
     $("[class]").each((_, e) => {
-      const classes = $(e).attr("class").split(/\s+/).filter(Boolean);
+      const classes = $(e).attr("class")!.split(/\s+/).filter(Boolean);
       const newClasses = classes.map((cls) => this.renamer.rename(cls));
       $(e).attr("class", newClasses.join(" "));
       debugReplace(
@@ -63,7 +63,7 @@ export class HTMLObfuscator {
 
     // Replace id attributes
     $("[id]").each((_, e) => {
-      const id = $(e).attr("id");
+      const id = $(e).attr("id")!;
       const newId = this.renamer.rename(id);
       $(e).attr("id", newId);
       debugReplace("HTML", "[id]", "id", id, newId);
@@ -71,7 +71,7 @@ export class HTMLObfuscator {
 
     // Replace for attributes
     $("[for]").each((_, e) => {
-      const id = $(e).attr("for");
+      const id = $(e).attr("for")!;
       const newId = this.renamer.rename(id);
       $(e).attr("for", newId);
       debugReplace("HTML", "[for]", "id", id, newId);
@@ -90,7 +90,7 @@ export class HTMLObfuscator {
     ];
     for (const attr of ariaIdAttrs) {
       $(`[${attr}]`).each((_, e) => {
-        const value = $(e).attr(attr);
+        const value = $(e).attr(attr)!;
         // These attributes can contain multiple space-separated IDs
         const newValue = value
           .split(/\s+/)
