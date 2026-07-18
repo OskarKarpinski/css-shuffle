@@ -129,6 +129,14 @@ describe("HTMLObfuscator", () => {
     expect(result).toContain('document.querySelector(".a")');
   });
 
+  it("ignores JSON-LD scripts", async () => {
+    const jsonLd = '{"@context":"https://schema.org","@type":"Person"}';
+    const { result } = await htmlObfuscator.processHtml(
+      `<script type="application/ld+json">${jsonLd}</script>`,
+    );
+    expect(result).toContain(jsonLd);
+  });
+
   it("processes both style and script inline", async () => {
     const { result } = await htmlObfuscator.processHtml(
       [

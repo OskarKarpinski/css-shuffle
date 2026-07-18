@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import type { AnyNode } from "domhandler";
 
 import { Renamer } from "./renamer.js";
 import { CSSObfuscator } from "./css-obfuscator.js";
@@ -102,7 +103,7 @@ export class HTMLObfuscator {
     }
 
     // Obfuscate inline <script> contents
-    const scripts = $("script").toArray();
+    const scripts = this.javascriptScripts($);
     for (const script of scripts) {
       const $script = $(script);
       const content = $script.html();
@@ -113,5 +114,20 @@ export class HTMLObfuscator {
     }
 
     return { result: $.html(), originalSize };
+  }
+
+  private javascriptScripts($: cheerio.CheerioAPI): AnyNode[] {
+    return $("script")
+      .toArray()
+      .filter((script) => {
+        const type = $(script).attr("type")?.trim().toLowerCase();
+        return (
+          type === undefined ||
+          type === "" ||
+          type === "text/javascript" ||
+          type === "application/javascript" ||
+          type === "module"
+        );
+      });
   }
 }
