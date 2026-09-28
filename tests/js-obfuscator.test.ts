@@ -240,4 +240,28 @@ describe("JSObfuscator", () => {
     const result = await obfuscator.obfuscate('document.querySelector("#user\\\\.name");');
     expect(result).toContain('document.querySelector("#a")');
   });
+
+  it("obfuscates closest() and matches() with selectors", async () => {
+    const obfuscator = new JSObfuscator(new Renamer());
+    const code = [
+      'const el = document.querySelector(".btn");',
+      'const card = el.closest(".card");',
+      'const isPrimary = el.matches(".primary");',
+    ].join("\n");
+    const result = await obfuscator.obfuscate(code);
+    expect(result).toContain('document.querySelector(".a")');
+    expect(result).toContain('el.closest(".b")');
+    expect(result).toContain('el.matches(".c")');
+  });
+
+  it("obfuscates element.id assignment", async () => {
+    const obfuscator = new JSObfuscator(new Renamer());
+    const code = [
+      'const el = document.getElementById("wrapper");',
+      'el.id = "active-modal";',
+    ].join("\n");
+    const result = await obfuscator.obfuscate(code);
+    expect(result).toContain('document.getElementById("a")');
+    expect(result).toContain('el.id = "b"');
+  });
 });
