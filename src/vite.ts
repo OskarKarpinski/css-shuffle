@@ -211,4 +211,5 @@ export function cssShuffleVitePlugin(
 }
 
 export const cssShuffle = cssShuffleVitePlugin;
+export const cssShufflePlugin = cssShuffleVitePlugin;
 export default cssShuffleVitePlugin;
