@@ -1,0 +1,58 @@
+---
+const title = "Astro Static + CSS Shuffle";
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>{title}</title>
+    <style>
+      :root {
+        --brand-color: #4f46e5;
+        --text-color: #1f2937;
+      }
+      .page-container {
+        max-width: 600px;
+        margin: 4rem auto;
+        font-family: system-ui, sans-serif;
+        color: var(--text-color);
+      }
+      .hero-card {
+        border: 1px solid #e5e7eb;
+        padding: 2rem;
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+      }
+      .btn {
+        background-color: var(--brand-color);
+        color: #ffffff;
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        border: none;
+        cursor: pointer;
+      }
+      .keep-me {
+        color: #059669;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page-container">
+      <div id="card" class="hero-card">
+        <h1>{title}</h1>
+        <p>Classes in this document will be obfuscated at build time.</p>
+        <p class="keep-me">This class was safelisted and will not be renamed.</p>
+        <button id="action-btn" class="btn">Click me</button>
+      </div>
+    </main>
+
+    <script>
+      const btn = document.getElementById("action-btn");
+      btn?.addEventListener("click", () => {
+        alert("DOM methods and IDs are synchronized!");
+      });
+    </script>
+  </body>
+</html>
