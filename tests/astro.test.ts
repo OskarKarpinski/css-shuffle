@@ -67,4 +67,21 @@ describe("Astro integration", () => {
     const mapping = JSON.parse(fs.readFileSync(mappingFile, "utf-8"));
     expect(mapping.card).toBe("a");
   });
+
+  it("disables mapping file when mappingFile is false", async () => {
+    fs.writeFileSync(
+      path.join(distDir, "index.html"),
+      '<div class="box"></div>',
+      "utf-8",
+    );
+
+    const integration = cssShuffleIntegration({ mappingFile: false });
+    const buildDoneHook = integration.hooks?.["astro:build:done"] as any;
+
+    const dirUrl = new URL(`file://${distDir}/`);
+    await buildDoneHook({ dir: dirUrl });
+
+    const mappingFile = path.join(tempDir, "mapping.json");
+    expect(fs.existsSync(mappingFile)).toBe(false);
+  });
 });

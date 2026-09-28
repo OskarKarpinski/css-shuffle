@@ -17,12 +17,25 @@ export class HTMLObfuscator {
   async searchForProtectedNames(html: string): Promise<void> {
     const $ = cheerio.load(html);
     $('[href*="#"]').each((_, e) => {
-      const href = $(e).attr("href")!;
+      const href = $(e).attr("href")?.trim();
+      if (!href) return;
+      // Skip external links (e.g. https://example.com/#anchor or //example.com/#anchor)
+      if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith("//")) {
+        return;
+      }
       const hashIndex = href.indexOf("#");
-      const fragment = href.slice(hashIndex + 1);
+      if (hashIndex === -1) return;
+      let fragment = href.slice(hashIndex + 1).split(/[?&#]/)[0]?.trim();
       if (fragment) {
-        this.renamer.protect(fragment);
-        debugLog("HTML", `Protected name: ${fragment}`);
+        try {
+          fragment = decodeURIComponent(fragment);
+        } catch {
+          // Keep raw fragment if malformed URI encoding
+        }
+        if (fragment) {
+          this.renamer.protect(fragment);
+          debugLog("HTML", `Protected name: ${fragment}`);
+        }
       }
     });
   }
@@ -70,7 +83,10 @@ export class HTMLObfuscator {
 
     // Replace class attributes
     $("[class]").each((_, e) => {
-      const classes = $(e).attr("class")!.split(/\s+/).filter(Boolean);
+      const rawClass = $(e).attr("class");
+      if (!rawClass) return;
+      const classes = rawClass.split(/\s+/).filter(Boolean);
+      if (classes.length === 0) return;
       const newClasses = classes.map((cls) => this.renamer.rename(cls));
       $(e).attr("class", newClasses.join(" "));
       debugReplace(
@@ -84,7 +100,8 @@ export class HTMLObfuscator {
 
     // Replace id attributes
     $("[id]").each((_, e) => {
-      const id = $(e).attr("id")!;
+      const id = $(e).attr("id")?.trim();
+      if (!id) return;
       const newId = this.renamer.rename(id);
       $(e).attr("id", newId);
       debugReplace("HTML", "[id]", "id", id, newId);
@@ -92,17 +109,18 @@ export class HTMLObfuscator {
 
     // Replace for attributes
     $("[for]").each((_, e) => {
-      const id = $(e).attr("for")!;
-      const newId = this.renamer.rename(id);
+      const forVal = $(e).attr("for")?.trim();
+      if (!forVal) return;
+      const newId = this.renamer.rename(forVal);
       $(e).attr("for", newId);
-      debugReplace("HTML", "[for]", "id", id, newId);
+      debugReplace("HTML", "[for]", "id", forVal, newId);
     });
 
     // Replace form-associated single ID reference attributes
     const singleIdAttrs = ["list", "form", "popovertarget"];
     for (const attr of singleIdAttrs) {
       $(`[${attr}]`).each((_, e) => {
-        const id = $(e).attr(attr);
+        const id = $(e).attr(attr)?.trim();
         if (id) {
           const newId = this.renamer.rename(id);
           $(e).attr(attr, newId);
@@ -164,12 +182,12 @@ export class HTMLObfuscator {
     ];
     for (const attr of ariaIdAttrs) {
       $(`[${attr}]`).each((_, e) => {
-        const value = $(e).attr(attr)!;
+        const value = $(e).attr(attr)?.trim();
+        if (!value) return;
         // These attributes can contain multiple space-separated IDs
-        const newValue = value
-          .split(/\s+/)
-          .map((id) => this.renamer.rename(id))
-          .join(" ");
+        const ids = value.split(/\s+/).filter(Boolean);
+        if (ids.length === 0) return;
+        const newValue = ids.map((id) => this.renamer.rename(id)).join(" ");
         $(e).attr(attr, newValue);
         debugReplace("HTML", attr, "id", value, newValue);
       });

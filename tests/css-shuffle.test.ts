@@ -284,4 +284,43 @@ describe("CSSShuffle integration", () => {
     const css = readFile(inputDir, "styles.css");
     expect(css).toContain(".a");
   });
+
+  it("respects safelist configuration", async () => {
+    writeFile(inputDir, "styles.css", ".keep-me { color: red; } .rename-me { color: blue; }");
+    writeFile(inputDir, "index.html", '<div class="keep-me rename-me"></div>');
+
+    const shuffler = new CSSShuffle({
+      safelist: ["keep-me"],
+    });
+    await shuffler.obfuscate(inputDir, outputDir);
+
+    const html = readFile(outputDir, "index.html");
+    expect(html).toContain("keep-me");
+    expect(html).toContain("a");
+    expect(html).not.toContain("rename-me");
+  });
+
+  it("saves mapping file when mappingFile option is provided", async () => {
+    writeFile(inputDir, "styles.css", ".btn { color: red; }");
+    writeFile(inputDir, "index.html", '<button class="btn">Click</button>');
+
+    const mappingPath = path.join(outputDir, "sub/dir/custom-mapping.json");
+    const shuffler = new CSSShuffle({
+      mappingFile: mappingPath,
+    });
+    await shuffler.obfuscate(inputDir, outputDir);
+
+    expect(fs.existsSync(mappingPath)).toBe(true);
+    const mappingContent = JSON.parse(fs.readFileSync(mappingPath, "utf-8"));
+    expect(mappingContent["btn"]).toBe("a");
+  });
+
+  it("prints stats table without error for edge case sizes", async () => {
+    writeFile(inputDir, "styles.css", "");
+    writeFile(inputDir, "index.html", "");
+
+    const shuffler = new CSSShuffle();
+    await shuffler.obfuscate(inputDir, outputDir);
+    expect(() => shuffler.printStatsTable()).not.toThrow();
+  });
 });

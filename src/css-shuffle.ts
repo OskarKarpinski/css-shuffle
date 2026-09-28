@@ -19,27 +19,43 @@ export interface CSSShuffleOptions {
    * @default true
    */
   hash?: boolean | "all";
+
+  /**
+   * List of class names, IDs, or RegExp patterns to preserve from obfuscation.
+   */
+  safelist?: (string | RegExp)[];
+
+  /**
+   * Optional file path to output the JSON mapping file. If `false`, mapping file output is disabled.
+   */
+  mappingFile?: string | false;
 }
 
 export class CSSShuffle {
   private options: CSSShuffleOptions;
 
   /** Generates and tracks obfuscated name mappings. */
-  private renamer = new Renamer();
+  private renamer: Renamer;
 
   /** Delegated obfuscators. */
-  private cssObfuscator = new CSSObfuscator(this.renamer);
-  private jsObfuscator = new JSObfuscator(this.renamer);
-  private htmlObfuscator = new HTMLObfuscator(
-    this.renamer,
-    this.cssObfuscator,
-    this.jsObfuscator,
-  );
+  private cssObfuscator: CSSObfuscator;
+  private jsObfuscator: JSObfuscator;
+  private htmlObfuscator: HTMLObfuscator;
 
   constructor(options?: CSSShuffleOptions) {
     this.options = {
       hash: options?.hash ?? true,
+      safelist: options?.safelist,
+      mappingFile: options?.mappingFile,
     };
+    this.renamer = new Renamer(this.options.safelist);
+    this.cssObfuscator = new CSSObfuscator(this.renamer);
+    this.jsObfuscator = new JSObfuscator(this.renamer);
+    this.htmlObfuscator = new HTMLObfuscator(
+      this.renamer,
+      this.cssObfuscator,
+      this.jsObfuscator,
+    );
   }
 
   /** Tracks file size changes for summary reporting. */
@@ -59,9 +75,13 @@ export class CSSShuffle {
   }
 
   /** Write the mapping JSON to a file. */
-  saveMappingJSON(path: string) {
+  saveMappingJSON(targetPath: string) {
+    const dir = path.dirname(targetPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
     const mapping = this.getMappingJSON();
-    fs.writeFileSync(path, mapping);
+    fs.writeFileSync(targetPath, mapping, "utf-8");
   }
 
   async obfuscate(
@@ -73,6 +93,9 @@ export class CSSShuffle {
     const resolvedDist = dist != undefined ? path.resolve(dist) : resolvedInput;
 
     const effectiveHashMode = options?.hash ?? this.options.hash ?? true;
+    if (options?.safelist) {
+      this.renamer.safelist.push(...options.safelist);
+    }
 
     if (resolvedInput !== resolvedDist) {
       // copy files from input dir to output dir
@@ -225,17 +248,30 @@ export class CSSShuffle {
         });
       }
     }
+
+    const effectiveMappingFile =
+      options?.mappingFile !== undefined
+        ? options.mappingFile
+        : this.options.mappingFile;
+    if (typeof effectiveMappingFile === "string") {
+      this.saveMappingJSON(path.resolve(effectiveMappingFile));
+    }
   }
 
   printStatsTable() {
     const table = new Table();
 
     this.stats.forEach((stats, file) => {
+      const diff = stats.originalSize - stats.newSize;
+      const reduction =
+        stats.originalSize > 0
+          ? ((diff / stats.originalSize) * 100) | 0
+          : 0;
       table.addRow({
         File: file,
         "Original Size": prettyBytes(stats.originalSize),
         "New Size": prettyBytes(stats.newSize),
-        Reduced: `${(((stats.originalSize - stats.newSize) / stats.originalSize) * 100) | 0}%`,
+        Reduced: `${reduction}%`,
       });
     });
 

@@ -264,4 +264,34 @@ describe("JSObfuscator", () => {
     expect(result).toContain('document.getElementById("a")');
     expect(result).toContain('el.id = "b"');
   });
+
+  it("handles ES modules with import and export statements", async () => {
+    const obfuscator = new JSObfuscator(new Renamer());
+    const code = [
+      'import { setup } from "./helper.js";',
+      'export function init() {',
+      '  const el = document.querySelector(".btn-submit");',
+      '  el.classList.add("loading");',
+      '}',
+      'export default init;',
+    ].join("\n");
+    const result = await obfuscator.obfuscate(code);
+    expect(result).toContain('import { setup } from "./helper.js";');
+    expect(result).toContain('document.querySelector(".a")');
+    expect(result).toContain('classList.add("b")');
+    expect(result).toContain('export default init;');
+  });
+
+  it("obfuscates attribute selectors in querySelector and matches", async () => {
+    const obfuscator = new JSObfuscator(new Renamer());
+    const code = [
+      'const nav = document.querySelector(\'[id="main-nav"]\');',
+      'const isBtn = nav.matches(\'[class~="btn-link"]\');',
+      'const forField = nav.closest(\'label[for="user-id"]\');',
+    ].join("\n");
+    const result = await obfuscator.obfuscate(code);
+    expect(result).toContain('document.querySelector("[id=\\"a\\"]")');
+    expect(result).toContain('nav.matches("[class~=\\"b\\"]")');
+    expect(result).toContain('nav.closest("label[for=\\"c\\"]")');
+  });
 });

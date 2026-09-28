@@ -115,6 +115,31 @@ describe("HTMLObfuscator", () => {
     expect(renamer.protected.has("section")).toBe(true);
   });
 
+  it("ignores external links in searchForProtectedNames", async () => {
+    await htmlObfuscator.searchForProtectedNames(
+      '<a href="https://example.com/#external-anchor">External</a><a href="//cdn.com/#cdn-anchor">CDN</a><a href="mailto:test@example.com#skip">Mail</a>',
+    );
+    expect(renamer.protected.has("external-anchor")).toBe(false);
+    expect(renamer.protected.has("cdn-anchor")).toBe(false);
+    expect(renamer.protected.has("skip")).toBe(false);
+  });
+
+  it("strips query parameters and decodes URI in searchForProtectedNames", async () => {
+    await htmlObfuscator.searchForProtectedNames(
+      '<a href="/#clean-anchor?query=1&page=2">Link</a><a href="/#encoded%20anchor">Link</a>',
+    );
+    expect(renamer.protected.has("clean-anchor")).toBe(true);
+    expect(renamer.protected.has("encoded anchor")).toBe(true);
+  });
+
+  it("handles empty attribute values without creating empty renames", async () => {
+    const { result } = await htmlObfuscator.processHtml(
+      '<div id="" class="" for="" list="" aria-labelledby=""></div>',
+    );
+    expect(result).toBe('<div id="" class="" for="" list="" aria-labelledby=""></div>');
+    expect(renamer.renames.size).toBe(0);
+  });
+
   it("obfuscates inline <style> content", async () => {
     const { result } = await htmlObfuscator.processHtml(
       '<style>.my-class { color: red; }</style>',
