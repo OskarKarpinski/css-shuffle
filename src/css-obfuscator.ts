@@ -17,10 +17,24 @@ export class CSSObfuscator {
    * and custom property names (--*) throughout rules, @property at-rules,
    * and var() references.
    */
-  async obfuscate(css: string): Promise<string> {
+  async obfuscate(css: string, from?: string): Promise<string> {
     return await postcss([
       (root: Root) => {
         debugHeader("Obfuscating CSS selectors");
+
+        // Obfuscate @keyframes names
+        const keyframeNames = new Set<string>();
+        root.walkAtRules(/keyframes$/, (atRule) => {
+          debugScan("CSS", atRule.name, "at-rule", atRule.params);
+          const name = atRule.params.trim();
+          if (name) {
+            keyframeNames.add(name);
+            const newName = this.obfuscateName(name);
+            debugReplace("CSS", atRule.name, "keyframe", name, newName);
+            atRule.params = newName;
+          }
+        });
+
         root.walkRules((rule) => {
           rule.selector = selectorParser((selectors) => {
             selectors.walkClasses((node) => {
@@ -75,6 +89,23 @@ export class CSSObfuscator {
             decl.prop = newName;
           }
 
+          if (
+            decl.prop === "animation-name" ||
+            decl.prop === "-webkit-animation-name" ||
+            decl.prop === "animation" ||
+            decl.prop === "-webkit-animation"
+          ) {
+            if (keyframeNames.size > 0) {
+              const parsedAnim = valueParser(decl.value);
+              parsedAnim.walk((node) => {
+                if (node.type === "word" && keyframeNames.has(node.value)) {
+                  node.value = this.obfuscateName(node.value);
+                }
+              });
+              decl.value = parsedAnim.toString();
+            }
+          }
+
           const parsedValue = valueParser(decl.value);
           parsedValue.walk((node) => {
             if (node.type === "word" && node.value.startsWith("--")) {
@@ -86,7 +117,7 @@ export class CSSObfuscator {
         });
       },
     ])
-      .process(css, { from: undefined })
+      .process(css, { from })
       .then((result) => result.css);
   }
 }

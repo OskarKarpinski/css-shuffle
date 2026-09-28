@@ -3,6 +3,13 @@
   "version": "1.2.1",
   "description": "Tool for obfuscating and randomizing all CSS classes and ID names in your HTML, CSS files.",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "type": "module",
   "scripts": {
     "build": "tsc",
@@ -37,7 +44,6 @@
   "devDependencies": {
     "@types/babel__generator": "^7.27.0",
     "@types/babel__traverse": "^7.28.0",
-    "@types/css-tree": "^2.3.10",
     "@types/node": "^24.3.0",
     "astro": "^5.13.3",
     "typescript": "^5.9.2",

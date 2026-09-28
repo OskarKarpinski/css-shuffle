@@ -5,6 +5,7 @@ import { Renamer } from "./renamer.js";
 import { CSSObfuscator } from "./css-obfuscator.js";
 import { JSObfuscator } from "./js-obfuscator.js";
 import { debugLog, debugReplace } from "./logger.js";
+import { safeReplaceAssetReference } from "./hasher.js";
 
 export class HTMLObfuscator {
   constructor(
@@ -45,10 +46,12 @@ export class HTMLObfuscator {
       $("link[href]").each((_, e) => {
         const href = $(e).attr("href");
         if (href) {
+          let updatedHref = href;
           for (const [oldName, newName] of assetRenames) {
-            if (href.includes(oldName)) {
-              $(e).attr("href", href.replaceAll(oldName, newName));
-            }
+            updatedHref = safeReplaceAssetReference(updatedHref, oldName, newName);
+          }
+          if (updatedHref !== href) {
+            $(e).attr("href", updatedHref);
           }
         }
       });
@@ -200,9 +203,7 @@ export class HTMLObfuscator {
     let result = $.html();
     if (assetRenames && assetRenames.size > 0) {
       for (const [oldName, newName] of assetRenames) {
-        if (result.includes(oldName)) {
-          result = result.replaceAll(oldName, newName);
-        }
+        result = safeReplaceAssetReference(result, oldName, newName);
       }
     }
 

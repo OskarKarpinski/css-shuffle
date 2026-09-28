@@ -130,12 +130,17 @@ describe("CSSObfuscator", () => {
     expect(result).toBe("@media (max-width: 768px) { .a { color: red; } }");
   });
 
-  it("handles keyframe selectors correctly", async () => {
+  it("obfuscates keyframe names and animation declarations", async () => {
     const obfuscator = new CSSObfuscator(new Renamer());
-    const result = await obfuscator.obfuscate(
+    const css = [
       "@keyframes slide { from { left: 0; } to { left: 100px; } }",
-    );
-    expect(result).toBe("@keyframes slide { from { left: 0; } to { left: 100px; } }");
+      ".btn { animation: slide 1s ease-in-out infinite; }",
+      ".card { animation-name: slide; }",
+    ].join("\n");
+    const result = await obfuscator.obfuscate(css);
+    expect(result).toContain("@keyframes a { from { left: 0; } to { left: 100px; } }");
+    expect(result).toContain(".b { animation: a 1s ease-in-out infinite; }");
+    expect(result).toContain(".c { animation-name: a; }");
   });
 
   it("obfuscates escaped ID selectors without leaving original raw value", async () => {

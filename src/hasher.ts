@@ -67,3 +67,23 @@ export function getNewHashedFilename(
 
   return null;
 }
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Safely replace asset filename references without corrupting unrelated words
+ * that happen to share a common substring (e.g. remain.css vs main.css).
+ */
+export function safeReplaceAssetReference(
+  content: string,
+  oldName: string,
+  newName: string,
+): string {
+  const pattern = new RegExp(
+    `(?<=[/"'\`(\\s]|^)${escapeRegex(oldName)}(?=[?"'\`)\\s]|$)`,
+    "g",
+  );
+  return content.replace(pattern, newName);
+}
