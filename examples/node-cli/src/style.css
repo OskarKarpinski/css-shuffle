@@ -1,0 +1,16 @@
+.card {
+  border: 1px solid #ccc;
+  padding: 1.5rem;
+  border-radius: 8px;
+}
+
+.card-title {
+  font-size: 1.25rem;
+  color: #333;
+}
+
+.safelisted-tag {
+  background: #eee;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
