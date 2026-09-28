@@ -148,4 +148,19 @@ describe("CSSObfuscator", () => {
     const result = await obfuscator.obfuscate("#user\\.name { color: red; } #modal\\:open { display: block; }");
     expect(result).toBe("#a { color: red; } #b { display: block; }");
   });
+
+  it("obfuscates attribute selectors for id, for, and class", async () => {
+    const obfuscator = new CSSObfuscator(new Renamer());
+    const css = [
+      '[id="main-nav"] { display: flex; }',
+      'label[for="user-email"] { font-weight: bold; }',
+      '[class~="btn-primary"] { color: blue; }',
+      '[class="btn active"] { background: green; }',
+    ].join("\n");
+    const result = await obfuscator.obfuscate(css);
+    expect(result).toContain('[id="a"] { display: flex; }');
+    expect(result).toContain('label[for="b"] { font-weight: bold; }');
+    expect(result).toContain('[class~="c"] { color: blue; }');
+    expect(result).toContain('[class="d e"] { background: green; }');
+  });
 });

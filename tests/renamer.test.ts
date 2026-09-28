@@ -84,4 +84,30 @@ describe("Renamer", () => {
     expect(renamer.get("a")).toBe("a");
     expect(renamer.get("c")).toBe("c");
   });
+
+  describe("safelist", () => {
+    it("preserves exact string matches in safelist", () => {
+      const renamer = new Renamer(["header", "sidebar"]);
+      expect(renamer.rename("header")).toBe("header");
+      expect(renamer.rename("sidebar")).toBe("sidebar");
+      expect(renamer.get("header")).toBe("header");
+      expect(renamer.get("sidebar")).toBe("sidebar");
+      expect(renamer.rename("main")).toBe("a");
+    });
+
+    it("preserves names matching RegExp patterns", () => {
+      const renamer = new Renamer([/^is-/, /-active$/]);
+      expect(renamer.rename("is-open")).toBe("is-open");
+      expect(renamer.rename("is-disabled")).toBe("is-disabled");
+      expect(renamer.rename("menu-active")).toBe("menu-active");
+      expect(renamer.rename("regular-class")).toBe("a");
+      expect(renamer.get("is-open")).toBe("is-open");
+    });
+
+    it("skips generated names that match safelist", () => {
+      const renamer = new Renamer(["a", /^b$/]);
+      // Generated names 'a' and 'b' should be skipped because they match safelist
+      expect(renamer.rename("first")).toBe("c");
+    });
+  });
 });

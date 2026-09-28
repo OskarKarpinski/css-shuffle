@@ -53,6 +53,44 @@ export class CSSObfuscator {
                 delete nodeWithRaws.raws.value;
               }
             });
+            selectors.walkAttributes((node) => {
+              if (
+                (node.attribute === "id" || node.attribute === "for") &&
+                node.operator === "="
+              ) {
+                if (node.value) {
+                  debugScan(
+                    "CSS",
+                    rule.selector,
+                    `attr-${node.attribute}`,
+                    node.value,
+                  );
+                  node.setValue(this.obfuscateName(node.value.trim()));
+                }
+              }
+              if (node.attribute === "class") {
+                if (node.operator === "~=" && node.value) {
+                  debugScan(
+                    "CSS",
+                    rule.selector,
+                    "attr-class-word",
+                    node.value,
+                  );
+                  node.setValue(this.obfuscateName(node.value.trim()));
+                } else if (node.operator === "=" && node.value) {
+                  debugScan(
+                    "CSS",
+                    rule.selector,
+                    "attr-class-exact",
+                    node.value,
+                  );
+                  const parts = node.value.split(/\s+/).filter(Boolean);
+                  node.setValue(
+                    parts.map((p) => this.obfuscateName(p)).join(" "),
+                  );
+                }
+              }
+            });
           }).processSync(rule.selector);
         });
 

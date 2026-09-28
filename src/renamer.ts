@@ -7,11 +7,34 @@ export class Renamer {
   /** Array of protected names that should not be obfuscated */
   readonly protected = new Set<string>();
 
+  /** Safelist patterns (strings or RegExps) that should be preserved */
+  readonly safelist: (string | RegExp)[] = [];
+
+  constructor(safelist?: (string | RegExp)[]) {
+    if (safelist) {
+      this.safelist = [...safelist];
+    }
+  }
+
   /** Map of original names to their new obfuscated names */
   readonly renames = new Map<string, string>();
 
-  rename(key: string): string {
+  isProtected(key: string): boolean {
     if (this.protected.has(key)) {
+      return true;
+    }
+    for (const pattern of this.safelist) {
+      if (typeof pattern === "string") {
+        if (pattern === key) return true;
+      } else if (pattern.test(key)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  rename(key: string): string {
+    if (this.isProtected(key)) {
       return key;
     }
 
@@ -36,7 +59,7 @@ export class Renamer {
       }
 
       this.nextIndex++;
-    } while (this.protected.has(name));
+    } while (this.isProtected(name));
 
     this.renames.set(key, name);
 
@@ -44,7 +67,7 @@ export class Renamer {
   }
 
   get(key: string): string {
-    if (this.protected.has(key)) {
+    if (this.isProtected(key)) {
       return key;
     }
 

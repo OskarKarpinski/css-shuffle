@@ -54,7 +54,7 @@ export class JSObfuscator {
    */
   async obfuscate(js: string): Promise<string> {
     const ast = parser.parse(js, {
-      sourceType: "script",
+      sourceType: "unambiguous",
       plugins: ["classProperties"],
       errorRecovery: true,
     });
@@ -254,6 +254,52 @@ export class JSObfuscator {
           const nodeWithRaws = node as { raws?: { value?: string } };
           if (nodeWithRaws.raws) {
             delete nodeWithRaws.raws.value;
+          }
+        }
+      });
+      selectors.walkAttributes((node) => {
+        if (
+          (node.attribute === "id" || node.attribute === "for") &&
+          node.operator === "="
+        ) {
+          if (node.value) {
+            const obf = this.getObfuscateName(node.value.trim());
+            if (obf) {
+              debugReplace(
+                "JS",
+                "querySelector",
+                `attr-${node.attribute}`,
+                node.value,
+                obf,
+              );
+              node.setValue(obf);
+            }
+          }
+        }
+        if (node.attribute === "class") {
+          if (node.operator === "~=" && node.value) {
+            const obf = this.getObfuscateName(node.value.trim());
+            if (obf) {
+              debugReplace(
+                "JS",
+                "querySelector",
+                "attr-class-word",
+                node.value,
+                obf,
+              );
+              node.setValue(obf);
+            }
+          } else if (node.operator === "=" && node.value) {
+            const parts = node.value.split(/\s+/).filter(Boolean);
+            const newParts = parts.map((p) => this.getObfuscateName(p) || p);
+            debugReplace(
+              "JS",
+              "querySelector",
+              "attr-class-exact",
+              node.value,
+              newParts.join(" "),
+            );
+            node.setValue(newParts.join(" "));
           }
         }
       });
