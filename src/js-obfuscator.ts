@@ -1,10 +1,7 @@
 import * as parser from "@babel/parser";
-import _traverse, { type Scope } from "@babel/traverse";
-import _generate from "@babel/generator";
+import traverse, { type Scope } from "@babel/traverse";
+import generate from "@babel/generator";
 import * as t from "@babel/types";
-
-const traverse = typeof _traverse === "function" ? _traverse : _traverse.default;
-const generate = typeof _generate === "function" ? _generate : _generate.default;
 import selectorParser from "postcss-selector-parser";
 
 import { Renamer } from "./renamer.js";
@@ -55,7 +52,6 @@ export class JSObfuscator {
   async obfuscate(js: string): Promise<string> {
     const ast = parser.parse(js, {
       sourceType: "unambiguous",
-      plugins: ["classProperties"],
       errorRecovery: true,
     });
 

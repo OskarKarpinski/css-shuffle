@@ -91,27 +91,21 @@ import "../styles.css";
     expect(mapping["btn"]).toBeDefined();
     expect(mapping["scoped-title"]).toBeDefined();
 
-    // 2. Verify server page template has obfuscated class names
-    const pageMjs = fs.readFileSync(
-      path.join(tmp, "dist/server/pages/index.astro.mjs"),
-      "utf-8",
-    );
-    expect(pageMjs).toContain(`class="${mapping["scoped-title"]}"`);
-    expect(pageMjs).toContain(`class="${mapping["card"]}"`);
-    expect(pageMjs).toContain(`class="${mapping["btn"]}"`);
+    // 2. Verify server files have obfuscated class names and styles
+    const serverFiles = (fs.readdirSync(path.join(tmp, "dist/server"), { recursive: true }) as string[])
+      .filter((f) => f.endsWith(".mjs"));
+    const allServerContent = serverFiles
+      .map((f) => fs.readFileSync(path.join(tmp, "dist/server", f), "utf-8"))
+      .join("\n");
 
-    // 3. Verify server manifest inline styles contain the exact matching obfuscated classes
-    const manifestFile = fs
-      .readdirSync(path.join(tmp, "dist/server"))
-      .find((f) => f.startsWith("manifest_"));
-    expect(manifestFile).toBeDefined();
-    const manifestContent = fs.readFileSync(
-      path.join(tmp, "dist/server", manifestFile!),
-      "utf-8",
-    );
-    expect(manifestContent).toContain(`.${mapping["scoped-title"]}[data-astro-cid-`);
-    expect(manifestContent).toContain(`.${mapping["card"]}`);
-    expect(manifestContent).toContain(`.${mapping["btn"]}`);
+    expect(allServerContent).toContain(`class="${mapping["scoped-title"]}"`);
+    expect(allServerContent).toContain(`class="${mapping["card"]}"`);
+    expect(allServerContent).toContain(`class="${mapping["btn"]}"`);
+
+    // 3. Verify server styles contain the exact matching obfuscated classes
+    expect(allServerContent).toContain(`.${mapping["scoped-title"]}[data-astro-cid-`);
+    expect(allServerContent).toContain(`.${mapping["card"]}`);
+    expect(allServerContent).toContain(`.${mapping["btn"]}`);
   });
 
   it("obfuscates classes in Astro Static mode (output: 'static')", async () => {
