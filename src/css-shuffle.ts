@@ -71,7 +71,7 @@ export class CSSShuffle {
 
   /** Return the mapping as a formatted JSON string. */
   getMappingJSON(): string {
-    return JSON.stringify(Object.fromEntries(this.getMapping()), null, 2);
+    return this.renamer.getMappingJSON();
   }
 
   /** Write the mapping JSON to a file. */
