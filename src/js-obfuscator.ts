@@ -1,5 +1,5 @@
 import * as parser from "@babel/parser";
-import _traverse from "@babel/traverse";
+import _traverse, { type Scope } from "@babel/traverse";
 import _generate from "@babel/generator";
 import * as t from "@babel/types";
 
@@ -118,11 +118,13 @@ export class JSObfuscator {
         }
 
         /**
-         * Handle querySelector / querySelectorAll calls.
+         * Handle querySelector / querySelectorAll / closest / matches calls.
          * Obfuscates class and ID selectors in the query string.
          */
         if (
-          ["querySelector", "querySelectorAll"].includes(method.name) &&
+          ["querySelector", "querySelectorAll", "closest", "matches"].includes(
+            method.name,
+          ) &&
           args.length === 1 &&
           this.isDomElement(object, path.scope)
         ) {
@@ -194,24 +196,32 @@ export class JSObfuscator {
       },
 
       /**
-       * Handle element.className = 'foo bar' assignments.
-       * Obfuscates each class name in the assigned string.
+       * Handle element.className = 'foo bar' and element.id = 'foo' assignments.
        */
       AssignmentExpression: (path) => {
         const { left, right } = path.node;
         if (
           t.isMemberExpression(left) &&
-          t.isIdentifier(left.property, { name: "className" }) &&
+          t.isIdentifier(left.property) &&
           this.isDomElement(left.object, path.scope)
         ) {
-          const val = getStringValue(right);
-          if (val !== null) {
-            const newVal = val
-              .split(/\s+/)
-              .map((cls) => this.getObfuscateName(cls) || cls)
-              .join(" ");
-            debugReplace("JS", "className", "class", val, newVal);
-            path.node.right = createStringNode(right, newVal);
+          if (left.property.name === "className") {
+            const val = getStringValue(right);
+            if (val !== null) {
+              const newVal = val
+                .split(/\s+/)
+                .map((cls) => this.getObfuscateName(cls) || cls)
+                .join(" ");
+              debugReplace("JS", "className", "class", val, newVal);
+              path.node.right = createStringNode(right, newVal);
+            }
+          } else if (left.property.name === "id") {
+            const val = getStringValue(right);
+            if (val !== null) {
+              const newVal = this.getObfuscateName(val);
+              debugReplace("JS", "id", "id", val, newVal);
+              path.node.right = createStringNode(right, newVal);
+            }
           }
         }
       },
@@ -259,7 +269,7 @@ export class JSObfuscator {
    * member expressions (document.body), and identifiers by tracing variable
    * bindings and function callback parameters (NodeList.forEach, etc.).
    */
-  private isDomElement(node: t.Node, scope: any): boolean {
+  private isDomElement(node: t.Node, scope: Scope): boolean {
     // document.getElementById(...) / document.querySelector(...) inline
     if (t.isCallExpression(node)) {
       const callee = node.callee;
@@ -316,14 +326,9 @@ export class JSObfuscator {
             callPath &&
             t.isCallExpression(callPath.node) &&
             t.isMemberExpression(callPath.node.callee) &&
-            t.isIdentifier(
-              (callPath.node.callee as t.MemberExpression).property,
-            ) &&
+            t.isIdentifier(callPath.node.callee.property) &&
             ["forEach", "map", "filter", "find"].includes(
-              (
-                (callPath.node.callee as t.MemberExpression)
-                  .property as t.Identifier
-              ).name,
+              callPath.node.callee.property.name,
             )
           ) {
             // Check if the array/NodeList being iterated is DOM-sourced
