@@ -19,6 +19,23 @@
     }
   },
   "type": "module",
+  "keywords": [
+    "css",
+    "css-shuffle",
+    "css-obfuscator",
+    "css-mangler",
+    "obfuscator",
+    "obfuscation",
+    "classnames",
+    "classes",
+    "minifier",
+    "minify",
+    "astro",
+    "astro-integration",
+    "withastro",
+    "vite",
+    "vite-plugin"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
