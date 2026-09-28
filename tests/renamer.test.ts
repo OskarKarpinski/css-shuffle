@@ -73,4 +73,15 @@ describe("Renamer", () => {
     }
     expect(generated.size).toBe(1000);
   });
+
+  it("skips generated names that collide with protected names", () => {
+    const renamer = new Renamer();
+    renamer.protect("a");
+    renamer.protect("c");
+
+    expect(renamer.rename("foo")).toBe("b");
+    expect(renamer.rename("bar")).toBe("d");
+    expect(renamer.get("a")).toBe("a");
+    expect(renamer.get("c")).toBe("c");
+  });
 });

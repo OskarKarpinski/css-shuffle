@@ -269,4 +269,19 @@ describe("CSSShuffle integration", () => {
     const html = readFile(outputDir, "index.html");
     expect(html).toContain('href="/_astro/index.DZQCOZSL.css"');
   });
+
+  it("does not delete files when input and dist resolve to the same directory", async () => {
+    writeFile(inputDir, "styles.css", ".btn { color: red; }");
+    writeFile(inputDir, "index.html", '<div class="btn"></div>');
+
+    const shuffler = new CSSShuffle();
+    // Pass same directory with different string representation (e.g., with trailing separator or relative path)
+    const sameDirWithDot = path.join(inputDir, ".");
+    await shuffler.obfuscate(inputDir, sameDirWithDot);
+
+    expect(fs.existsSync(path.join(inputDir, "styles.css"))).toBe(true);
+    expect(fs.existsSync(path.join(inputDir, "index.html"))).toBe(true);
+    const css = readFile(inputDir, "styles.css");
+    expect(css).toContain(".a");
+  });
 });
