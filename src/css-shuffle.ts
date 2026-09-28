@@ -8,7 +8,7 @@ import { CSSObfuscator } from "./css-obfuscator.js";
 import { JSObfuscator } from "./js-obfuscator.js";
 import { HTMLObfuscator } from "./html-obfuscator.js";
 import { debugLog, debugHeader } from "./logger.js";
-import { computeHash, getNewHashedFilename } from "./hasher.js";
+import { computeHash, getNewHashedFilename, safeReplaceAssetReference } from "./hasher.js";
 
 export interface CSSShuffleOptions {
   /**
@@ -108,7 +108,7 @@ export class CSSShuffle {
     for (const cssFile of cssFiles) {
       debugLog("CSS file", cssFile);
       const cssContent = fs.readFileSync(cssFile, "utf-8");
-      const obfuscatedCss = await this.cssObfuscator.obfuscate(cssContent);
+      const obfuscatedCss = await this.cssObfuscator.obfuscate(cssContent, cssFile);
 
       const oldSize = cssContent.length;
       const newSize = obfuscatedCss.length;
@@ -165,8 +165,9 @@ export class CSSShuffle {
         let content = fs.readFileSync(currentCssFile, "utf-8");
         let changed = false;
         for (const [oldName, newName] of sortedAssetRenames) {
-          if (content.includes(oldName)) {
-            content = content.replaceAll(oldName, newName);
+          const newContent = safeReplaceAssetReference(content, oldName, newName);
+          if (newContent !== content) {
+            content = newContent;
             changed = true;
           }
         }
@@ -207,9 +208,7 @@ export class CSSShuffle {
 
       if (sortedAssetRenames.length > 0) {
         for (const [oldName, newName] of sortedAssetRenames) {
-          if (newJsContent.includes(oldName)) {
-            newJsContent = newJsContent.replaceAll(oldName, newName);
-          }
+          newJsContent = safeReplaceAssetReference(newJsContent, oldName, newName);
         }
       }
 

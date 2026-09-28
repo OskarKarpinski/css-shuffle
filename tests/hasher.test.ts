@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { computeHash, getNewHashedFilename } from "../src/hasher.js";
+import {
+  computeHash,
+  getNewHashedFilename,
+  safeReplaceAssetReference,
+} from "../src/hasher.js";
 
 describe("hasher utility", () => {
   describe("computeHash", () => {
@@ -50,6 +54,23 @@ describe("hasher utility", () => {
     it("returns null when hash mode is false", () => {
       expect(getNewHashedFilename("index.DZQCOZSL.css", "12345678", false)).toBeNull();
       expect(getNewHashedFilename("styles.css", "12345678", false)).toBeNull();
+    });
+  });
+
+  describe("safeReplaceAssetReference", () => {
+    it("replaces filename without affecting words containing it as substring", () => {
+      const input = 'const x = "remain.css"; const y = "/assets/main.css"; const z = "./main.css";';
+      const output = safeReplaceAssetReference(input, "main.css", "main.12345678.css");
+
+      expect(output).toContain('"remain.css"');
+      expect(output).toContain('"/assets/main.12345678.css"');
+      expect(output).toContain('"./main.12345678.css"');
+    });
+
+    it("replaces references with query strings or hashes", () => {
+      const input = '<link href="/main.css?v=1">';
+      const output = safeReplaceAssetReference(input, "main.css", "main.12345678.css");
+      expect(output).toBe('<link href="/main.12345678.css?v=1">');
     });
   });
 });
