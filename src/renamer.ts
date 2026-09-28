@@ -81,4 +81,8 @@ export class Renamer {
       this.protected.add(name);
     }
   }
+
+  getMappingJSON(): string {
+    return JSON.stringify(Object.fromEntries(this.renames), null, 2);
+  }
 }

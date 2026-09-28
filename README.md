@@ -108,38 +108,56 @@ await shuffler.obfuscate('./my-build-folder'); // modifies in-place
 
 ---
 
-## Astro Integration
+## Astro Integration (Static & SSR)
 
-CSS Shuffle provides a first-class [Astro](https://astro.build/) integration that automatically runs during the production build.
+CSS Shuffle provides a first-class [Astro](https://astro.build/) integration that seamlessly supports both **Static (SSG)** and **Server-Side Rendered (SSR / Hybrid)** builds.
 
 ```javascript
 // astro.config.mjs
 import { defineConfig } from 'astro/config';
 import { astro as cssShuffle } from 'css-shuffle';
+// or: import cssShuffle from 'css-shuffle/astro';
 
 export default defineConfig({
+  output: 'server', // or 'static' / 'hybrid'
   integrations: [
     cssShuffle({
-      // Options (all optional):
-      // hash: true (default) - re-hash already-hashed CSS files to bust production cache
-      // hash: 'all' - append content hash to all CSS files
-      // hash: false - disable re-hashing
+      // List of class names, IDs, or RegExps to preserve
+      safelist: ['keep-me', /^preserve-/],
+
+      // Path for mapping output (or false to disable)
+      mappingFile: 'dist/mapping.json',
     })
   ]
 });
 ```
 
-How it works:
+### How it works with Astro:
+- Injects a high-performance Vite plugin directly into Astro's build pipeline (`astro:config:setup`).
+- Obfuscates both server template chunks (`dist/server/pages/*.mjs`) and client stylesheets/scripts (`dist/client/`) synchronously.
+- Guaranteed hydration consistency for Astro UI components (React, Vue, Svelte, Preact).
+- Automatically prevents 404 cache errors by allowing Vite to generate matching content hashes.
 
-1. After Astro finishes building to the output directory, `css-shuffle` is invoked.
-2. All HTML, CSS, and JavaScript files in the build output are obfuscated.
-3. CSS files with content hashes (e.g. `_astro/index.[hash].css`) are automatically re-hashed with their new obfuscated content hash and all references in HTML and JS are updated to prevent production browser/CDN cache loops.
-4. A stats table is printed to the console.
-5. A `mapping.json` file is saved one level above the output directory.
+---
 
-No configuration needed—it just works out of the box with cache-busting enabled.
+## Vite Plugin (Standalone Vite, React, Vue, Svelte)
 
-> For non-Astro projects, use the standalone [`CSSShuffle`](#cssshuffle) class instead.
+You can use CSS Shuffle directly as a [Vite](https://vite.dev/) plugin for any Vite-powered project:
+
+```javascript
+// vite.config.js
+import { defineConfig } from 'vite';
+import { cssShuffle } from 'css-shuffle/vite';
+
+export default defineConfig({
+  plugins: [
+    cssShuffle({
+      safelist: ['btn-primary', /^is-/],
+      mappingFile: 'mapping.json', // or false to disable
+    }),
+  ],
+});
+```
 
 ---
 
