@@ -234,4 +234,10 @@ describe("JSObfuscator", () => {
     expect(result).toContain('classList.add("b")');
     expect(result).toContain('classList.remove("b")');
   });
+
+  it("obfuscates escaped ID selectors in querySelector", async () => {
+    const obfuscator = new JSObfuscator(new Renamer());
+    const result = await obfuscator.obfuscate('document.querySelector("#user\\\\.name");');
+    expect(result).toContain('document.querySelector("#a")');
+  });
 });

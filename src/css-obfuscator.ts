@@ -26,10 +26,18 @@ export class CSSObfuscator {
             selectors.walkClasses((node) => {
               debugScan("CSS", rule.selector, "class", node.value);
               node.value = this.obfuscateName(node.value);
+              const nodeWithRaws = node as { raws?: { value?: string } };
+              if (nodeWithRaws.raws) {
+                delete nodeWithRaws.raws.value;
+              }
             });
             selectors.walkIds((node) => {
               debugScan("CSS", rule.selector, "id", node.value);
               node.value = this.obfuscateName(node.value);
+              const nodeWithRaws = node as { raws?: { value?: string } };
+              if (nodeWithRaws.raws) {
+                delete nodeWithRaws.raws.value;
+              }
             });
           }).processSync(rule.selector);
         });

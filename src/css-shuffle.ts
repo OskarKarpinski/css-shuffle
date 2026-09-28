@@ -69,20 +69,20 @@ export class CSSShuffle {
     dist?: string,
     options?: CSSShuffleOptions,
   ) {
-    if (dist == undefined) {
-      dist = input;
-    }
+    const resolvedInput = path.resolve(input);
+    const resolvedDist = dist != undefined ? path.resolve(dist) : resolvedInput;
 
     const effectiveHashMode = options?.hash ?? this.options.hash ?? true;
 
-    if (input != dist) {
+    if (resolvedInput !== resolvedDist) {
       // copy files from input dir to output dir
-      if (fs.existsSync(dist)) {
-        fs.rmSync(dist, { recursive: true, force: true });
+      if (fs.existsSync(resolvedDist)) {
+        fs.rmSync(resolvedDist, { recursive: true, force: true });
       }
-      fs.mkdirSync(dist, { recursive: true });
-      fs.cpSync(input, dist, { recursive: true });
+      fs.mkdirSync(resolvedDist, { recursive: true });
+      fs.cpSync(resolvedInput, resolvedDist, { recursive: true });
     }
+    dist = resolvedDist;
 
     const toAbsolute = (pattern: string) =>
       fs.globSync(pattern, { cwd: dist }).map((f) => path.resolve(dist, f));
@@ -124,8 +124,8 @@ export class CSSShuffle {
       if (newBasename && newBasename !== path.basename(cssFile)) {
         targetCssFile = path.join(path.dirname(cssFile), newBasename);
         const oldBasename = path.basename(cssFile);
-        const oldRel = cssFile.replace(dist, "").replace(/^[/\\]/, "");
-        const newRel = targetCssFile.replace(dist, "").replace(/^[/\\]/, "");
+        const oldRel = path.relative(dist, cssFile).replace(/\\/g, "/");
+        const newRel = path.relative(dist, targetCssFile).replace(/\\/g, "/");
 
         assetRenames.set(oldBasename, newBasename);
         assetRenames.set(oldRel, newRel);
@@ -145,7 +145,7 @@ export class CSSShuffle {
       currentCssFiles.push(targetCssFile);
 
       if (oldSize != newSize) {
-        const fileName = targetCssFile.replace(dist, "");
+        const fileName = path.relative(dist, targetCssFile).replace(/\\/g, "/");
         this.stats.set(fileName, {
           originalSize: oldSize,
           newSize: newSize,
@@ -191,7 +191,7 @@ export class CSSShuffle {
 
       const newSize = result.length;
       if (originalSize != newSize) {
-        const fileName = htmlFile.replace(dist, "");
+        const fileName = path.relative(dist, htmlFile).replace(/\\/g, "/");
         this.stats.set(fileName, {
           originalSize: originalSize,
           newSize: newSize,
@@ -218,7 +218,7 @@ export class CSSShuffle {
       let originalSize = jsContent.length;
       const newSize = newJsContent.length;
       if (originalSize != newSize) {
-        const fileName = jsFile.replace(dist, "");
+        const fileName = path.relative(dist, jsFile).replace(/\\/g, "/");
 
         this.stats.set(fileName, {
           originalSize: originalSize,

@@ -230,6 +230,10 @@ export class JSObfuscator {
         if (obf) {
           debugReplace("JS", "querySelector", "class", node.value, obf);
           node.value = obf;
+          const nodeWithRaws = node as { raws?: { value?: string } };
+          if (nodeWithRaws.raws) {
+            delete nodeWithRaws.raws.value;
+          }
         }
       });
       selectors.walkIds((node) => {
@@ -237,6 +241,10 @@ export class JSObfuscator {
         if (obf) {
           debugReplace("JS", "querySelector", "id", node.value, obf);
           node.value = obf;
+          const nodeWithRaws = node as { raws?: { value?: string } };
+          if (nodeWithRaws.raws) {
+            delete nodeWithRaws.raws.value;
+          }
         }
       });
     }).processSync(selector);

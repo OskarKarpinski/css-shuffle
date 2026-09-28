@@ -137,4 +137,10 @@ describe("CSSObfuscator", () => {
     );
     expect(result).toBe("@keyframes slide { from { left: 0; } to { left: 100px; } }");
   });
+
+  it("obfuscates escaped ID selectors without leaving original raw value", async () => {
+    const obfuscator = new CSSObfuscator(new Renamer());
+    const result = await obfuscator.obfuscate("#user\\.name { color: red; } #modal\\:open { display: block; }");
+    expect(result).toBe("#a { color: red; } #b { display: block; }");
+  });
 });

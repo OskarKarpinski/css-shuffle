@@ -19,23 +19,27 @@ export class Renamer {
       return this.renames.get(key)!;
     }
 
-    let index = this.nextIndex;
     let name = "";
+    do {
+      let index = this.nextIndex;
+      name = "";
 
-    // First character
-    name = START_CHARS[index % START_CHARS.length] + name;
-    index = Math.floor(index / START_CHARS.length);
+      // First character
+      name = START_CHARS[index % START_CHARS.length] + name;
+      index = Math.floor(index / START_CHARS.length);
 
-    // Subsequent characters
-    while (index > 0) {
-      index--; // Adjust for 0-based index
-      name = NEXT_CHARS[index % NEXT_CHARS.length] + name;
-      index = Math.floor(index / NEXT_CHARS.length);
-    }
+      // Subsequent characters
+      while (index > 0) {
+        index--; // Adjust for 0-based index
+        name = NEXT_CHARS[index % NEXT_CHARS.length] + name;
+        index = Math.floor(index / NEXT_CHARS.length);
+      }
+
+      this.nextIndex++;
+    } while (this.protected.has(name));
 
     this.renames.set(key, name);
 
-    this.nextIndex++;
     return name;
   }
 
