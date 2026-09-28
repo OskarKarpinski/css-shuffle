@@ -29,13 +29,29 @@ export class HTMLObfuscator {
   /**
    * Process an HTML file in a single pass: obfuscate CSS in <style> tags,
    * replace class/id/for attributes, and obfuscate inline <script> contents.
+   * Also updates asset references if files were renamed (e.g. cache-busted CSS).
    * Returns the transformed HTML along with the original size for stats tracking.
    */
   async processHtml(
     html: string,
+    assetRenames?: Map<string, string>,
   ): Promise<{ result: string; originalSize: number }> {
     const originalSize = html.length;
     const $ = cheerio.load(html);
+
+    // Update <link> references if any assets were renamed
+    if (assetRenames && assetRenames.size > 0) {
+      $("link[href]").each((_, e) => {
+        const href = $(e).attr("href");
+        if (href) {
+          for (const [oldName, newName] of assetRenames) {
+            if (href.includes(oldName)) {
+              $(e).attr("href", href.replaceAll(oldName, newName));
+            }
+          }
+        }
+      });
+    }
 
     // Obfuscate CSS in <style> tags
     const styles = $("style").toArray();
@@ -113,7 +129,16 @@ export class HTMLObfuscator {
       }
     }
 
-    return { result: $.html(), originalSize };
+    let result = $.html();
+    if (assetRenames && assetRenames.size > 0) {
+      for (const [oldName, newName] of assetRenames) {
+        if (result.includes(oldName)) {
+          result = result.replaceAll(oldName, newName);
+        }
+      }
+    }
+
+    return { result, originalSize };
   }
 
   private javascriptScripts($: cheerio.CheerioAPI): AnyNode[] {

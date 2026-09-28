@@ -29,6 +29,7 @@ Obfuscate your production build, make your source code substantially harder to r
 | Handles `<label for="...">` references | ✅ |
 | Protects hash-fragment URLs (`href="/#projects"`) | ✅ |
 | Analyzes & updates JavaScript DOM API calls | ✅ |
+| Automatic CSS content re-hashing (cache-busting) | ✅ |
 | Babel-based JS AST transformation | ✅ |
 | Astro framework official integration | ✅ |
 | Consistent mapping across all file types | ✅ |
@@ -118,7 +119,12 @@ import { astro as cssShuffle } from 'css-shuffle';
 
 export default defineConfig({
   integrations: [
-    cssShuffle()
+    cssShuffle({
+      // Options (all optional):
+      // hash: true (default) - re-hash already-hashed CSS files to bust production cache
+      // hash: 'all' - append content hash to all CSS files
+      // hash: false - disable re-hashing
+    })
   ]
 });
 ```
@@ -127,10 +133,11 @@ How it works:
 
 1. After Astro finishes building to the output directory, `css-shuffle` is invoked.
 2. All HTML, CSS, and JavaScript files in the build output are obfuscated.
-3. A stats table is printed to the console.
-4. A `mapping.json` file is saved one level above the output directory.
+3. CSS files with content hashes (e.g. `_astro/index.[hash].css`) are automatically re-hashed with their new obfuscated content hash and all references in HTML and JS are updated to prevent production browser/CDN cache loops.
+4. A stats table is printed to the console.
+5. A `mapping.json` file is saved one level above the output directory.
 
-No configuration needed—it just works.
+No configuration needed—it just works out of the box with cache-busting enabled.
 
 > For non-Astro projects, use the standalone [`CSSShuffle`](#cssshuffle) class instead.
 
@@ -145,7 +152,9 @@ The main class for standalone usage.
 #### Constructor
 
 ```javascript
-const shuffler = new CSSShuffle();
+const shuffler = new CSSShuffle({
+  hash: true // boolean | 'all' (default: true)
+});
 ```
 
 #### Methods
