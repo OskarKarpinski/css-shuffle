@@ -37,7 +37,8 @@ export class HTMLObfuscator {
     assetRenames?: Map<string, string>,
   ): Promise<{ result: string; originalSize: number }> {
     const originalSize = html.length;
-    const $ = cheerio.load(html);
+    const isDocument = /<!doctype|<html/i.test(html);
+    const $ = isDocument ? cheerio.load(html) : cheerio.load(html, null, false);
 
     // Update <link> references if any assets were renamed
     if (assetRenames && assetRenames.size > 0) {
@@ -94,6 +95,59 @@ export class HTMLObfuscator {
       debugReplace("HTML", "[for]", "id", id, newId);
     });
 
+    // Replace form-associated single ID reference attributes
+    const singleIdAttrs = ["list", "form", "popovertarget"];
+    for (const attr of singleIdAttrs) {
+      $(`[${attr}]`).each((_, e) => {
+        const id = $(e).attr(attr);
+        if (id) {
+          const newId = this.renamer.rename(id);
+          $(e).attr(attr, newId);
+          debugReplace("HTML", `[${attr}]`, "id", id, newId);
+        }
+      });
+    }
+
+    // Replace SVG URL references like fill="url(#my-gradient)"
+    const svgUrlAttrs = [
+      "fill",
+      "stroke",
+      "clip-path",
+      "mask",
+      "filter",
+      "marker-start",
+      "marker-mid",
+      "marker-end",
+    ];
+    for (const attr of svgUrlAttrs) {
+      $(`[${attr}*="url(#"]`).each((_, e) => {
+        const value = $(e).attr(attr);
+        if (value) {
+          const newValue = value.replace(/url\(#([^)]+)\)/g, (_, id) => {
+            return `url(#${this.renamer.get(id)})`;
+          });
+          if (newValue !== value) {
+            $(e).attr(attr, newValue);
+            debugReplace("HTML", attr, "svg-url", value, newValue);
+          }
+        }
+      });
+    }
+
+    // Replace SVG <use href="#id"> references
+    $("use").each((_, e) => {
+      for (const attr of ["href", "xlink:href"]) {
+        const value = $(e).attr(attr);
+        if (value && value.startsWith("#")) {
+          const id = value.slice(1);
+          const newId = this.renamer.get(id);
+          const newValue = `#${newId}`;
+          $(e).attr(attr, newValue);
+          debugReplace("HTML", `use[${attr}]`, "svg-use", value, newValue);
+        }
+      }
+    });
+
     // Replace ARIA ID-reference attributes
     const ariaIdAttrs = [
       "aria-labelledby",
@@ -117,6 +171,20 @@ export class HTMLObfuscator {
         debugReplace("HTML", attr, "id", value, newValue);
       });
     }
+
+    // Replace CSS custom properties in inline style attributes
+    $("[style*='--']").each((_, e) => {
+      const style = $(e).attr("style");
+      if (style) {
+        const newStyle = style.replace(/--([a-zA-Z0-9_-]+)/g, (_, prop) => {
+          return `--${this.renamer.get(prop)}`;
+        });
+        if (newStyle !== style) {
+          $(e).attr("style", newStyle);
+          debugReplace("HTML", "[style]", "css-var", style, newStyle);
+        }
+      }
+    });
 
     // Obfuscate inline <script> contents
     const scripts = this.javascriptScripts($);

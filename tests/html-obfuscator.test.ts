@@ -175,4 +175,38 @@ describe("HTMLObfuscator", () => {
     const { result } = await htmlObfuscator.processHtml("");
     expect(result).toBeDefined();
   });
+
+  it("obfuscates form-associated ID attributes (list, form, popovertarget)", async () => {
+    const html = '<input list="suggestions"><datalist id="suggestions"></datalist><button form="myForm" popovertarget="myMenu">Submit</button><form id="myForm"></form><div id="myMenu" popover>Menu</div>';
+    const { result } = await htmlObfuscator.processHtml(html);
+    expect(result).toContain('list="a"');
+    expect(result).toContain('id="a"');
+    expect(result).toContain('form="b"');
+    expect(result).toContain('id="b"');
+    expect(result).toContain('popovertarget="c"');
+    expect(result).toContain('id="c"');
+  });
+
+  it("obfuscates SVG url() and use href references", async () => {
+    const html = '<svg><defs><linearGradient id="gradient-1"></linearGradient></defs><rect fill="url(#gradient-1)" clip-path="url(#gradient-1)" /><use href="#gradient-1" /></svg>';
+    const { result } = await htmlObfuscator.processHtml(html);
+    expect(result).toContain('id="a"');
+    expect(result).toContain('fill="url(#a)"');
+    expect(result).toContain('clip-path="url(#a)"');
+    expect(result).toContain('href="#a"');
+  });
+
+  it("obfuscates CSS variables in inline style attributes", async () => {
+    // Register mapping for variable via CSSObfuscator or Renamer
+    renamer.rename("card-bg"); // card-bg -> a
+    const html = '<div style="--card-bg: red; background: var(--card-bg);"></div>';
+    const { result } = await htmlObfuscator.processHtml(html);
+    expect(result).toContain('style="--a: red; background: var(--a);"');
+  });
+
+  it("preserves HTML fragments without wrapping in html/body", async () => {
+    const fragment = '<div class="btn"><span>Text</span></div>';
+    const { result } = await htmlObfuscator.processHtml(fragment);
+    expect(result).toBe('<div class="a"><span>Text</span></div>');
+  });
 });
